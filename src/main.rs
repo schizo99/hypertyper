@@ -1,8 +1,6 @@
 /// av alla ord som rör sig mot "skölden".. börjar du skriva på ett ord så måste du skriva klart det
 /// två ord som börjar på samma bokstav får inte finnas på spelplanen samtidigt, så länge inte en spelare börjat skriva på ett ord
 /// för varje bokstav som går igenom muren så förlorar du en # (sköld)
-
-
 use std::{
     io,
     sync::mpsc,
@@ -11,9 +9,22 @@ use std::{
 };
 
 use crossterm::{
-    cursor::{Hide, MoveTo, Show}, event::{read, Event, KeyCode, KeyEvent}, execute, style::Print, terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType}
+    cursor::{Hide, MoveTo, Show},
+    event::{read, Event, KeyCode, KeyEvent},
+    execute,
+    style::Print,
+    terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType},
 };
 use rand::Rng;
+
+struct Word {
+    word: String,
+    x: u16,
+    y: u16,
+    started: bool,
+    enabled: bool,
+    completed: bool,
+}
 
 fn main() {
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
@@ -33,73 +44,98 @@ fn main() {
     let size = size().unwrap();
     let width = size.0;
     let height = size.1;
-    let words = ["terminal", "rust"];
-
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || loop {
         let key = get_key();
         tx.send(key).unwrap();
     });
-    fun_name(words, rx, height, width);
+    fun_name(rx, height, width);
     execute!(io::stdout(), Show).unwrap();
     disable_raw_mode().unwrap();
 }
 
 fn draw_shield(width: u16, height: u16) {
     for y in 0..height {
-                execute!(io::stdout(), MoveTo(width, y)).unwrap();
-                print!("#");
-            }
+        execute!(io::stdout(), MoveTo(width, y)).unwrap();
+        print!("#");
+    }
 }
 
-fn fun_name(
-    words: [&str; 2],
-    rx: mpsc::Receiver<String>,
-    height: u16,
-    width: u16,
-) {
+fn fun_name(rx: mpsc::Receiver<String>, height: u16, width: u16) {
     let mut winner = false;
-    for (i, word ) in words.iter().enumerate() {
-        let sleeptime = Duration::from_millis(100-i as u64);
-        execute!(io::stdout(), Clear(ClearType::All)).unwrap();
-        let y = rand::thread_rng().gen_range(0..height);
-        let mut x_position = 0;
-        let mut modify = word.to_string();
-        let mut counter = 0;
-        let mut length = word.len() - counter;
-        let mut letters = Vec::new();
-        draw_shield(80, height);
-        loop {
-            execute!(io::stdout(), MoveTo(80, y)).unwrap();
-            execute!(io::stdout(), Clear(ClearType::CurrentLine)).unwrap();
-            for c in letters.iter() {
-                modify = modify.replace(c, " ");
-            }
-            let a = format!("# {:>width$}", &modify, width = width as usize - 82 as usize -counter as usize);
-            execute!(io::stdout(), Print(a)).unwrap();
-            sleep(sleeptime);
-            counter += 1;
-            match rx.try_recv() {
-                Ok(key) => {
-                    if key == "\x1B" {
-                        break;
-                    }
-                    if word.contains(&key) {
-                        letters.push(key);
-                        if word.chars().all(|c| letters.contains(&c.to_string())) {
-                            winner = true;
-                            break;
-                        }
-                    }
+
+    let sleeptime = Duration::from_millis(100);
+    execute!(io::stdout(), Clear(ClearType::All)).unwrap();
+    let mut x_position = 0;
+    // let mut modify = word.to_string();
+    let mut counter = 0;
+    // let mut length = word.len() - counter;
+    let mut words: Vec<Word> = Vec::new();
+    for w in ["terminal", "rust"] {
+        let word = Word {
+            word: w.to_string(),
+            x: x_position,
+            y: rand::thread_rng().gen_range(0..height),
+            started: false,
+            enabled: false,
+            completed: false,
+        };
+        words.push(word);
+    }
+    draw_shield(80, height);
+    let mut breakout = false;
+    let mut level = 1;
+    loop {
+        words.retain(|w| !w.completed);
+        if words.len() == 0 {
+            winner = true;
+            break;
+        }
+        for w in words.iter_mut() {
+            if !w.started {
+                if rand::thread_rng().gen_range(0..100) < 10 {
+                    w.enabled = true;
                 }
-                Err(_) => {
-                }
-            }
-            if counter > width as usize - 82 {
-                break;
             }
         }
+        for w in words.iter_mut() {
+            if w.enabled && !w.completed {
+                execute!(io::stdout(), MoveTo(80, w.y)).unwrap();
+                execute!(io::stdout(), Clear(ClearType::CurrentLine)).unwrap();
+                let a = format!(
+                    "# {:>width$}",
+                    &w.word[0..],
+                    width = width as usize - 82 as usize - counter as usize
+                );
+                execute!(io::stdout(), Print(a)).unwrap();
+                counter += 1;
+                match rx.try_recv() {
+                    Ok(key) => {
+                        if key == "\x1B" {
+                            breakout = true;
+                        }
+                        if w.word.starts_with(&key) {
+                            w.started = true;
+                            w.word = w.word[1..].to_string();
+                            if w.word.len() == 0 {
+                                w.completed = true;
+                            }
+                        }
+                    }
+                    Err(_) => {}
+                }
+            }
+        }
+        sleep(sleeptime);
+        if counter > width as usize - 82 {
+            winner = false;
+            break;
+        }
+        if breakout {
+            break;
+        }
     }
+
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
     if winner {
         println!("You won!");
