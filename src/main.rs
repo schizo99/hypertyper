@@ -1,16 +1,17 @@
+/// av alla ord som rör sig mot "skölden".. börjar du skriva på ett ord så måste du skriva klart det
+/// två ord som börjar på samma bokstav får inte finnas på spelplanen samtidigt, så länge inte en spelare börjat skriva på ett ord
+/// för varje bokstav som går igenom muren så förlorar du en # (sköld)
+
+
 use std::{
     io,
-    ops::Deref,
     sync::mpsc,
     thread::{self, sleep},
     time::Duration,
 };
 
 use crossterm::{
-    cursor::{Hide, MoveTo, Show},
-    event::{read, Event, KeyCode, KeyEvent},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType},
+    cursor::{Hide, MoveTo, Show}, event::{read, Event, KeyCode, KeyEvent}, execute, style::Print, terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType}
 };
 use rand::Rng;
 
@@ -33,22 +34,29 @@ fn main() {
     let width = size.0;
     let height = size.1;
     let words = ["terminal", "rust"];
-    
+
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || loop {
         let key = get_key();
         tx.send(key).unwrap();
     });
-
-    fun_name(words, rx, height);
-
+    fun_name(words, rx, height, width);
+    execute!(io::stdout(), Show).unwrap();
     disable_raw_mode().unwrap();
+}
+
+fn draw_shield(width: u16, height: u16) {
+    for y in 0..height {
+                execute!(io::stdout(), MoveTo(width, y)).unwrap();
+                print!("#");
+            }
 }
 
 fn fun_name(
     words: [&str; 2],
     rx: mpsc::Receiver<String>,
     height: u16,
+    width: u16,
 ) {
     let mut winner = false;
     for (i, word ) in words.iter().enumerate() {
@@ -57,22 +65,18 @@ fn fun_name(
         let y = rand::thread_rng().gen_range(0..height);
         let mut x_position = 0;
         let mut modify = word.to_string();
-        let mut counter = 1;
+        let mut counter = 0;
         let mut length = word.len() - counter;
         let mut letters = Vec::new();
+        draw_shield(80, height);
         loop {
-            execute!(io::stdout(), MoveTo(x_position, y)).unwrap();
+            execute!(io::stdout(), MoveTo(80, y)).unwrap();
             execute!(io::stdout(), Clear(ClearType::CurrentLine)).unwrap();
-            if length <= 0 {
-                length = 0;
-                x_position += 1;
-            } else {
-                length = word.len() - counter;
-            }
             for c in letters.iter() {
                 modify = modify.replace(c, " ");
             }
-            println!("{}", &modify[length..]);
+            let a = format!("# {:>width$}", &modify, width = width as usize - 82 as usize -counter as usize);
+            execute!(io::stdout(), Print(a)).unwrap();
             sleep(sleeptime);
             counter += 1;
             match rx.try_recv() {
@@ -91,7 +95,7 @@ fn fun_name(
                 Err(_) => {
                 }
             }
-            if counter > 50 {
+            if counter > width as usize - 82 {
                 break;
             }
         }
