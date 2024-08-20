@@ -111,11 +111,15 @@ fn hit() {
 fn fun_name(rx: mpsc::Receiver<String>, height: i32, mut player: Player) {
     let mut winner = false;
 
-    let sleeptime = Duration::from_millis(100 - player.level as u64);
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
     let mut words: Vec<Word> = Vec::new();
     let mut breakout = false;
     loop {
+        if player.score % 5 == 0 {
+            player.level = player.score / 5;
+        }
+        let sleeptime = Duration::from_millis(100 - (player.level * 2) as u64);
+        let mut hit = false;
         draw_shield(WIDTH, height);
         draw_toolbar(&player);
         words.retain(|w| !w.completed);
@@ -161,12 +165,12 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, mut player: Player) {
                 w.x -= 1;
                 if w.word.starts_with(&keypressed) && w.started {
                     w.word = w.word[1..].to_string();
-                    hit();
+                    hit = true;
                 } else if !w.started && !any_started {
                     if w.word.starts_with(&keypressed) {
                         w.started = true;
                         w.word = w.word[1..].to_string();
-                        hit();
+                        hit = true;
                     }
                 }
                 execute!(io::stdout(), MoveTo(WIDTH as u16, w.y as u16)).unwrap();
@@ -174,14 +178,18 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, mut player: Player) {
                 execute!(io::stdout(), Print(format!("#"))).unwrap();
                 execute!(io::stdout(), MoveTo(w.x as u16, w.y as u16)).unwrap();
                 if w.x > WIDTH {
-                    execute!(io::stdout(), Print(format!("{}", &w.word))).unwrap();
+                    if hit {
+                        execute!(io::stdout(), SetForegroundColor(Color::Red), Print(format!("{}", &w.word)), ResetColor).unwrap();
+                    } else {
+                        execute!(io::stdout(), Print(format!("{}", &w.word))).unwrap();
+                    }
                 }
             }
             if w.word.len() == 0 {
                 w.completed = true;
+                player.score += 1;
             }
         }
-
         sleep(sleeptime);
         if breakout {
             break;
