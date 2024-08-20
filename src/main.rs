@@ -12,7 +12,7 @@ use crossterm::{
     cursor::{Hide, MoveTo, Show},
     event::{read, Event, KeyCode, KeyEvent},
     execute,
-    style::Print,
+    style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor},
     terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType},
 };
 use rand::Rng;
@@ -92,11 +92,20 @@ fn randomword(width: i32, height: i32) -> Word {
     Word {
         word: word.to_string(),
         x: width - word.len() as i32,
-        y: rand::thread_rng().gen_range(0..height),
+        y: rand::thread_rng().gen_range(1..height),
         started: false,
         enabled: false,
         completed: false,
     }
+}
+
+fn hit() {
+    execute!(io::stdout(), Clear(ClearType::All)).unwrap();
+    execute!(
+        io::stdout(),
+        SetBackgroundColor(Color::White),
+        ResetColor,
+    ).unwrap();
 }
 
 fn fun_name(rx: mpsc::Receiver<String>, height: i32, mut player: Player) {
@@ -105,20 +114,9 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, mut player: Player) {
     let sleeptime = Duration::from_millis(100 - player.level as u64);
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
     let mut words: Vec<Word> = Vec::new();
-    // for w in ["terminal", "rust", "bajs"] {
-    //     let word = Word {
-    //         word: w.to_string(),
-    //         x: 1,
-    //         y: rand::thread_rng().gen_range(1..height),
-    //         started: false,
-    //         enabled: false,
-    //         completed: false,
-    //     };
-    //     words.push(word);
-    // }
-    draw_shield(WIDTH, height);
     let mut breakout = false;
     loop {
+        draw_shield(WIDTH, height);
         draw_toolbar(&player);
         words.retain(|w| !w.completed);
         if words.len() < 5 + player.level as usize {
@@ -163,17 +161,21 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, mut player: Player) {
                 w.x -= 1;
                 if w.word.starts_with(&keypressed) && w.started {
                     w.word = w.word[1..].to_string();
+                    hit();
                 } else if !w.started && !any_started {
                     if w.word.starts_with(&keypressed) {
                         w.started = true;
                         w.word = w.word[1..].to_string();
+                        hit();
                     }
                 }
                 execute!(io::stdout(), MoveTo(WIDTH as u16, w.y as u16)).unwrap();
                 execute!(io::stdout(), Clear(ClearType::CurrentLine)).unwrap();
                 execute!(io::stdout(), Print(format!("#"))).unwrap();
                 execute!(io::stdout(), MoveTo(w.x as u16, w.y as u16)).unwrap();
-                execute!(io::stdout(), Print(format!("{}", &w.word))).unwrap();
+                if w.x > WIDTH {
+                    execute!(io::stdout(), Print(format!("{}", &w.word))).unwrap();
+                }
             }
             if w.word.len() == 0 {
                 w.completed = true;
