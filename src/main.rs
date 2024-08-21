@@ -15,8 +15,7 @@ use crossterm::{
     event::{read, Event, KeyCode, KeyEvent},
     execute,
     style::{
-        Color, Colors, Print, PrintStyledContent, ResetColor, SetBackgroundColor, SetColors,
-        Stylize,
+        Color, Colors, Print, PrintStyledContent, ResetColor, SetBackgroundColor, SetColors, SetForegroundColor, Stylize
     },
     terminal::{
         disable_raw_mode, enable_raw_mode, size, Clear, ClearType, EnterAlternateScreen,
@@ -111,12 +110,22 @@ fn randomword(width: i32, height: i32) -> Word {
     let word = words[rand::thread_rng().gen_range(0..words.len())];
     Word {
         word: word.to_string(),
-        x: width - (word.len() as i32),
+        x: width - 2,
         y: rand::thread_rng().gen_range(3..height - 1),
         started: false,
         enabled: false,
         completed: false,
         hit: false,
+    }
+}
+
+fn display_word(word: &Word, player: &Player) -> String{
+    let wordlength = word.word.len() + word.x as usize;
+    let overflow: i32 = wordlength as i32 - player.screen_width;
+    if overflow < 0 {
+        return word.word.to_string();
+    } else {
+        return word.word[0..word.word.len() - overflow as usize].to_string();
     }
 }
 
@@ -131,8 +140,7 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
         if player.score % 5 == 0 {
             player.level = player.score / 5;
         }
-        let sleeptime = Duration::from_millis(400 - (player.level * 2) as u64);
-        draw_border(player.screen_width, height);
+        let sleeptime = Duration::from_millis(1000 - (player.level * 2) as u64);
         draw_shield(WIDTH, height);
         draw_toolbar(&player);
         words.retain(|w| !w.completed);
@@ -147,7 +155,7 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
         }
         for w in words.iter_mut() {
             if !w.enabled {
-                if rand::thread_rng().gen_range(0..100) < 10 {
+                if rand::thread_rng().gen_range(0..100) < 50 {
                     w.enabled = true;
                 }
             }
@@ -197,19 +205,13 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
                 }
                 execute!(io::stdout(), MoveTo(w.x as u16, w.y as u16)).unwrap();
                 //execute!(io::stdout(), Clear(ClearType::CurrentLine)).unwrap();
-                let mut wordlen: i32 = 1 + w.x + w.word.len() as i32 - player.screen_width ;
-                let mut barrier_collision = "".to_string();
-                if wordlen >= 0 {
-                    wordlen = w.word.len() as i32;
-                    barrier_collision = format!("{}#", &w.word[..wordlen as usize]);
-                } else if wordlen < 0 {
-                    barrier_collision = format!("{}", &w.word);
-                }
+                let word = display_word(&w, &player);
+                let barrier_collision = format!("{}", word);
 
-                if w.hit {
+                if w.hit || w.started{
                     execute!(
                         io::stdout(),
-                        SetColors(Colors::new(Color::White, Color::Red)),
+                        SetForegroundColor(Color::DarkRed),
                         Print(barrier_collision),
                         SetColors(Colors::new(Color::Reset, Color::Reset)),
                         PrintStyledContent("  ".white()),
@@ -233,6 +235,8 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
                 player.score += 1;
             }
         }
+        draw_border(player.screen_width, height);
+
         sleep(sleeptime);
     }
 }
