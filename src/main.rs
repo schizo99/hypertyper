@@ -105,9 +105,9 @@ fn draw_border(width: i32, height: i32) {
     }
 }
 
-fn randomword(width: i32, height: i32) -> Word {
-    let words = ["terminal", "rust", "bajs"];
-    let word = words[rand::thread_rng().gen_range(0..words.len())];
+fn randomword(width: i32, height: i32, wordlist: &Vec<String>) -> Word {
+    let word = &wordlist[rand::thread_rng().gen_range(0..wordlist.len() as usize)];
+    println!("{:?}", word);
     Word {
         word: word.to_string(),
         x: width - 2,
@@ -129,8 +129,14 @@ fn display_word(word: &Word, player: &Player) -> String{
     }
 }
 
+fn get_random_words_from_file() -> Vec<String> {
+    let words = std::fs::read_to_string("words_alpha.txt").unwrap();
+    words.split("\r\n").map(|s| s.to_string()).collect()
+}
+
 fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
+    let wordlist = get_random_words_from_file();
     let mut words: Vec<Word> = Vec::new();
     let mut breakout = false;
     loop {
@@ -145,7 +151,7 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
         draw_toolbar(&player);
         words.retain(|w| !w.completed);
         if words.len() < 5 + player.level as usize {
-            let new_word = randomword(player.screen_width, height);
+            let new_word = randomword(player.screen_width, height, &wordlist);
             let conflict = words
                 .iter()
                 .any(|w| w.word.starts_with(&new_word.word[0..1]));
