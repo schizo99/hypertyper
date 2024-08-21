@@ -90,18 +90,18 @@ fn draw_toolbar(player: &Player) {
 }
 
 fn draw_border(width: i32, height: i32) {
-    for x in 0..width -1{
+    for x in 0..width - 1 {
         execute!(io::stdout(), MoveTo(x as u16, 0)).unwrap();
         print!("#");
         execute!(io::stdout(), MoveTo(x as u16, 2)).unwrap();
         print!("#");
-        execute!(io::stdout(), MoveTo(x as u16, height as u16 -1)).unwrap();
+        execute!(io::stdout(), MoveTo(x as u16, height as u16 - 1)).unwrap();
         print!("#");
     }
-    for y in 0..height -1 {
+    for y in 0..height - 1 {
         execute!(io::stdout(), MoveTo(0, y as u16)).unwrap();
         print!("#");
-        execute!(io::stdout(), MoveTo(width as u16 -1, y as u16)).unwrap();
+        execute!(io::stdout(), MoveTo(width as u16 - 1, y as u16)).unwrap();
         print!("#");
     }
 }
@@ -111,8 +111,8 @@ fn randomword(width: i32, height: i32) -> Word {
     let word = words[rand::thread_rng().gen_range(0..words.len())];
     Word {
         word: word.to_string(),
-        x: width - word.len() as i32,
-        y: rand::thread_rng().gen_range(3..height-1),
+        x: width - (word.len() as i32),
+        y: rand::thread_rng().gen_range(3..height - 1),
         started: false,
         enabled: false,
         completed: false,
@@ -131,7 +131,7 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
         if player.score % 5 == 0 {
             player.level = player.score / 5;
         }
-        let sleeptime = Duration::from_millis(100 - (player.level * 2) as u64);
+        let sleeptime = Duration::from_millis(400 - (player.level * 2) as u64);
         draw_border(player.screen_width, height);
         draw_shield(WIDTH, height);
         draw_toolbar(&player);
@@ -197,11 +197,20 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
                 }
                 execute!(io::stdout(), MoveTo(w.x as u16, w.y as u16)).unwrap();
                 //execute!(io::stdout(), Clear(ClearType::CurrentLine)).unwrap();
+                let mut wordlen: i32 = 1 + w.x + w.word.len() as i32 - player.screen_width ;
+                let mut barrier_collision = "".to_string();
+                if wordlen >= 0 {
+                    wordlen = w.word.len() as i32;
+                    barrier_collision = format!("{}#", &w.word[..wordlen as usize]);
+                } else if wordlen < 0 {
+                    barrier_collision = format!("{}", &w.word);
+                }
+
                 if w.hit {
                     execute!(
                         io::stdout(),
                         SetColors(Colors::new(Color::White, Color::Red)),
-                        Print(format!("{}", &w.word)),
+                        Print(barrier_collision),
                         SetColors(Colors::new(Color::Reset, Color::Reset)),
                         PrintStyledContent("  ".white()),
                         ResetColor
@@ -211,13 +220,12 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
                 } else {
                     execute!(
                         io::stdout(),
-                        PrintStyledContent(format!("{}", &w.word).white()),
-                        PrintStyledContent(" ".white()),
+                        Print(barrier_collision),
+                       PrintStyledContent(" ".white()),
                     )
                     .unwrap();
                 }
-                execute!(io::stdout(), MoveTo(WIDTH as u16, w.y as u16)).unwrap();
-                
+                execute!(io::stdout(), MoveTo(player.screen_width as u16, w.y as u16)).unwrap();
                 execute!(io::stdout(), Print(format!("#"))).unwrap();
             }
             if w.word.len() == 0 {
