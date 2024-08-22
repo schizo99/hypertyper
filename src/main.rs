@@ -139,6 +139,7 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
     let wordlist = get_random_words_from_file();
     let mut words: Vec<Word> = Vec::new();
     let mut breakout = false;
+    let mut counter = 0;
     loop {
         if breakout {
             break;
@@ -146,7 +147,7 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
         if player.score % 5 == 0 {
             player.level = player.score / 5;
         }
-        let sleeptime = Duration::from_millis(1000 - (player.level * 2) as u64);
+        let sleeptime = Duration::from_millis(80 - (player.level * 2) as u64);
         draw_shield(WIDTH, height);
         draw_toolbar(&player);
         words.retain(|w| !w.completed);
@@ -161,7 +162,7 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
         }
         for w in words.iter_mut() {
             if !w.enabled {
-                if rand::thread_rng().gen_range(0..100) < 50 {
+                if rand::thread_rng().gen_range(0..100) < 10 {
                     w.enabled = true;
                 }
             }
@@ -197,8 +198,10 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
         let any_started = words.iter().any(|w| w.started);
 
         for w in words.iter_mut() {
-            if w.enabled && !w.completed {
+            if counter > 5 {
                 w.x -= 1;
+            }
+            if w.enabled && !w.completed {
                 if w.word.starts_with(&keypressed) && w.started {
                     w.word = w.word[1..].to_string();
                     w.hit = true;
@@ -244,6 +247,12 @@ fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
         draw_border(player.screen_width, height);
 
         sleep(sleeptime);
+        if counter > 5 {
+            counter = 0;
+        } else {
+
+            counter += 1;
+        }
     }
 }
 
