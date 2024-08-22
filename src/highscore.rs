@@ -6,11 +6,11 @@
 use crate::structs::{Args, Player};
 use clap::CommandFactory;
 use crossterm::{
-    cursor::{Hide, MoveTo, Show},
+    cursor::{Hide, MoveTo},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
-use std::{fs::OpenOptions, time::Duration};
+use std::fs::OpenOptions;
 use std::io::{self, prelude::*};
 
 pub fn add_highscore(args: &Args, player: &Player) {
