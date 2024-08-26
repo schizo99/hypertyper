@@ -151,7 +151,6 @@ fn get_dictionary_from_file() -> Vec<String> {
 }
 
 fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
-    words.retain(|w| !w.completed || w.word.len() > 0);
     let any_word_started = words.iter().any(|w| w.started);
     for word in words.iter_mut() {
         if word.word.starts_with(&key) && word.started {
@@ -185,8 +184,9 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
     let mut words: Vec<Word> = Vec::new();
 
     let mut gametick = 1;
-    while player.is_alive { 
-        let new_word = add_word(&field, &mut words, &dictionary);
+    while player.is_alive {
+        add_word(&field, &mut words, &dictionary);
+        words.retain(|w| !w.completed || w.word.len() > 0);
         match rx.try_recv() {
             Ok(key) => {
                 if key == "\x1B" {
@@ -220,16 +220,20 @@ fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>) {
     let mut new_word = randomword(field, dictionary);
     if words.len() < 1 {
         words.push(new_word);
-    } else if words.len() < 4 {
+    } else if words.len() < 5 {
         let mut conflict = words
             .iter()
             .any(|w| w.word.starts_with(&new_word.word[0..1]));
         while conflict {
             new_word = randomword(field, dictionary);
+            let distance = words.iter().map(|w| w.x + w.word.len() as i32).max().unwrap() < new_word.x - 5;
+            let collision = words
+                .iter()
+                .any(|w| w.y == new_word.y);
             conflict = words
                 .iter()
                 .any(|w| w.word.starts_with(&new_word.word[0..1]));
-            if !conflict {
+            if !conflict && !collision && distance {
                 words.push(new_word);
             }
         }
