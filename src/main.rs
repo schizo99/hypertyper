@@ -156,14 +156,14 @@ fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
     for word in words.iter_mut() {
         if word.word.starts_with(&key) && word.started {
             word.word = word.word[1..].to_string();
-            //word.x += 1;
+            word.x += 1;
             player.score += 1;
             word.hit = true;
         } else if !word.started && !any_word_started {
             if word.word.starts_with(&key) {
                 word.started = true;
                 word.word = word.word[1..].to_string();
-                //word.x += 1;
+                word.x += 1;
                 player.score += 1;
                 word.hit = true;
             }
@@ -196,18 +196,21 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
                 }
                 _ = {
                     update_words(key, &mut words, player);
+                    update_hit_word(&mut words, &field);
                 };
             }
             Err(_) => {}
         }
-        draw_words(&mut words, &field);
-        draw_border(&field);
-        draw_toolbar(player);
-        draw_shield(&field);
-        shield_hit(&mut words, player);
+        if gametick % 10000 == 0 {
+            draw_words(&mut words, &field);
+            draw_border(&field);
+            draw_toolbar(player);
+            draw_shield(&field);
+            shield_hit(&mut words, player);
+        }
 
         gametick += 1;
-        let sleep_time = Duration::from_micros(50000 / player.level as u64);
+        let sleep_time = Duration::from_micros(50 / player.level as u64);
         sleep(Duration::from_micros(sleep_time.as_micros() as u64));
     }
     end_game();
@@ -242,7 +245,7 @@ fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
             flash_screen();
             player.shields -= 1;
             word.word = word.word[1..].to_string();
-            //word.x += 1;
+            word.x += 1;
         }
     }
 }
@@ -253,6 +256,37 @@ fn draw_words(words: &mut Vec<Word>, field: &Field) {
         draw_word(word, word2, field.width);
     }
 }
+
+fn update_hit_word(words: &mut Vec<Word>, field: &Field) {
+    for word in words {
+        if word.started && word.word.len() > 0 {
+            let word2 = format!(" {}",truncate_word(word, field.width -1));
+            draw_hit_word(word, word2, field.width);
+        }
+    }
+}
+fn draw_hit_word(word: &mut Word, truncated_word: String, width: i32) {
+    if word.enabled && !word.completed {
+        execute!(io::stdout(), MoveTo(word.x as u16, word.y as u16)).unwrap();
+        if word.hit || word.started {
+            execute!(
+                io::stdout(),
+                SetForegroundColor(Color::Yellow),
+                Print(truncated_word),
+                SetColors(Colors::new(Color::Reset, Color::Reset)),
+                PrintStyledContent("  ".white()),
+                ResetColor
+            )
+            .unwrap();
+        }
+        if word.word.len() == 0 {
+            word.completed = true;
+        }
+        execute!(io::stdout(), MoveTo(width as u16 - 1, word.y as u16)).unwrap();
+        execute!(io::stdout(), Print(format!("|"))).unwrap();
+    }
+}
+
 
 fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
     if word.enabled && !word.completed {
