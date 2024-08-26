@@ -44,9 +44,6 @@ fn main() {
     }
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
     // get size of terminal
-    let size = size().unwrap();
-    let width = size.0 as i32;
-    let height = size.1 as i32;
     let (tx, rx) = mpsc::channel();
     let get_key = thread::spawn(move || loop {
         let key = get_key();
@@ -134,7 +131,7 @@ fn randomword(field: &Field, wordlist: &Vec<String>) -> Word {
     Word {
         word: word.to_string(),
         x: field.width - 2,
-        y: rand::thread_rng().gen_range(3..field.height - 1),
+        y: rand::thread_rng().gen_range(5..field.height - 3),
         started: false,
         enabled: true,
         completed: false,
@@ -157,12 +154,14 @@ fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
     for word in words.iter_mut() {
         if word.word.starts_with(&key) && word.started {
             word.word = word.word[1..].to_string();
+            word.x += 1;
             player.score += 1;
             word.hit = true;
         } else if !word.started && !any_word_started {
             if word.word.starts_with(&key) {
                 word.started = true;
                 word.word = word.word[1..].to_string();
+                word.x += 1;
                 player.score += 1;
                 word.hit = true;
             }
@@ -202,6 +201,8 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
             Ok(key) => {
                 if key == "\x1B" {
                     return;
+                } else if key == "EXIT" {
+                    player.is_alive = false;
                 }
                 _ = {
                     update_words(key, &mut words, player);
@@ -218,12 +219,12 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
             shield_hit(&mut words, player);
         }
         gametick += 1;
-        sleep(Duration::from_micros(10));
+        sleep(Duration::from_micros(50));
     }
     end_game();
 }
 fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
-    if player.shields == 0 {
+    if player.shields <= 0 {
         player.is_alive = false;
     }
     for word in words.iter_mut() {
@@ -238,7 +239,7 @@ fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
 
 fn draw_words(words: &mut Vec<Word>, field: &Field) {
     for word in words {
-        let word2 = truncate_word(word, field.width);
+        let word2 = format!(" {}",truncate_word(word, field.width -1));
         draw_word(word, word2, field.width);
     }
 }
@@ -255,7 +256,7 @@ fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
                 SetForegroundColor(Color::Yellow),
                 Print(truncated_word),
                 SetColors(Colors::new(Color::Reset, Color::Reset)),
-                PrintStyledContent("  ".white()),
+                PrintStyledContent("               ".white()),
                 ResetColor
             )
             .unwrap();
@@ -263,7 +264,7 @@ fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
             execute!(
                 io::stdout(),
                 Print(truncated_word),
-                PrintStyledContent(" ".white()),
+                PrintStyledContent("  ".white()),
             )
             .unwrap();
         }
@@ -293,7 +294,7 @@ fn get_key() -> String {
             KeyCode::Enter => "\n".to_string(),
             KeyCode::Backspace => "\x08".to_string(),
             KeyCode::Delete => "\x7F".to_string(),
-            KeyCode::Esc =>  { end_game(); "".to_string() },
+            KeyCode::Esc =>  "EXIT".to_string(),
             _ => "".to_string(),
         };
     }
@@ -315,5 +316,5 @@ fn end_game() {
     sleep(Duration::from_millis(1000));
     execute!(io::stdout(), MoveTo(0, 24 + 1)).unwrap();
 
-    std::process::exit(0);
-}   
+    //std::process::exit(0);
+}
