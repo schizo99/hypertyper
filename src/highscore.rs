@@ -83,6 +83,8 @@ pub fn handle_highscore(args: &Args) {
                 shields: 3,
                 level: 0,
                 screen_width: 0,
+                screen_height: 0,
+                is_alive: true,
             },
         );
         std::process::exit(0);

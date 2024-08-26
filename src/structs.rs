@@ -1,5 +1,7 @@
 use clap::Parser;
 
+pub const SHIELD_POSITION: i32 = 15;
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
@@ -16,7 +18,10 @@ pub struct Args {
     pub show_highscore: bool,
 }
 
-pub const WIDTH: i32 = 60;
+pub struct Field {
+    pub width: i32,
+    pub height: i32,
+}
 pub struct Word {
     pub word: String,
     pub x: i32,
@@ -33,5 +38,7 @@ pub struct Player {
     pub shields: i32,
     pub level: i32,
     pub score: i32,
+    pub is_alive: bool,
     pub screen_width: i32,
+    pub screen_height: i32,
 }

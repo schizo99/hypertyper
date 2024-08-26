@@ -15,7 +15,8 @@ use crossterm::{
     event::{read, Event, KeyCode, KeyEvent},
     execute,
     style::{
-        Color, Colors, Print, PrintStyledContent, ResetColor, SetBackgroundColor, SetColors, SetForegroundColor, Stylize
+        Color, Colors, Print, PrintStyledContent, ResetColor, SetBackgroundColor, SetColors,
+        SetForegroundColor, Stylize,
     },
     terminal::{
         disable_raw_mode, enable_raw_mode, size, Clear, ClearType, EnterAlternateScreen,
@@ -61,9 +62,12 @@ fn main() {
         shields: 10,
         level: 1,
         score: 0,
-        screen_width: width,
+        screen_width: 100,
+        screen_height: 30,
+        is_alive: true,
     };
-    fun_name(rx, height, &mut player);
+    let dictionary = get_dictionary_from_file();
+    mamma(rx, &mut player, &dictionary);
     add_highscore(&args, &player);
     enable_raw_mode().unwrap();
     show_highscore(&args.path, &player);
@@ -72,271 +76,196 @@ fn main() {
     execute!(io::stdout(), Show).unwrap();
 }
 
-fn draw_shield(width: i32, height: i32) {
-    for y in 2..height {
-        execute!(io::stdout(), MoveTo(width as u16, y as u16)).unwrap();
+fn draw_shield(field: &Field) {
+    for y in 3..field.height - 1 {
+        execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, y as u16)).unwrap();
         print!("#");
     }
 }
 
 fn draw_toolbar(player: &Player) {
     execute!(io::stdout(), MoveTo(5, 1), Clear(ClearType::CurrentLine)).unwrap();
-    print!("Score: {}", player.score);
-    execute!(io::stdout(), MoveTo(35, 1)).unwrap();
-    print!("Level: {}", player.level);
-    execute!(io::stdout(), MoveTo(65, 1)).unwrap();
-    print!("Shields: {}", ")".repeat(player.shields as usize));
+    println!("Score: {}", player.score);
+    execute!(io::stdout(), MoveTo(25, 1)).unwrap();
+    println!("Level: {}", player.level);
+    execute!(io::stdout(), MoveTo(50, 1)).unwrap();
+    if player.shields >= 0 {
+        println!("Shields: {}", ")".repeat(player.shields as usize));
+    }
 }
 
-fn draw_border(width: i32, height: i32) {
-    for x in 0..width - 1 {
-        execute!(io::stdout(), MoveTo(x as u16, 0)).unwrap();
-        print!("#");
-        execute!(io::stdout(), MoveTo(x as u16, 2)).unwrap();
-        print!("#");
-        execute!(io::stdout(), MoveTo(x as u16, height as u16 - 1)).unwrap();
-        print!("#");
-    }
-    for y in 0..height - 1 {
+fn draw_border(field: &Field) {
+    execute!(io::stdout(), MoveTo(0, 2)).unwrap();
+    print!("/");
+    print!("{}", "-".repeat(field.width as usize - 2));
+    print!("\\");
+    for y in 3..field.height - 1 {
         execute!(io::stdout(), MoveTo(0, y as u16)).unwrap();
-        print!("#");
-        execute!(io::stdout(), MoveTo(width as u16 - 1, y as u16)).unwrap();
-        print!("#");
+        print!("|");
+        execute!(io::stdout(), MoveTo(field.width as u16 - 1, y as u16)).unwrap();
+        print!("|");
     }
+    execute!(io::stdout(), MoveTo(0, field.height as u16 - 1 )).unwrap();
+
+    print!("\\");
+    print!("{}", "-".repeat(field.width as usize - 2));
+    print!("/");
+
 }
 
-fn randomword(width: i32, height: i32, wordlist: &Vec<String>) -> Word {
+fn randomword(field: &Field, wordlist: &Vec<String>) -> Word {
     let word = &wordlist[rand::thread_rng().gen_range(0..wordlist.len() as usize)];
     Word {
         word: word.to_string(),
-        x: width - 2,
-        y: rand::thread_rng().gen_range(3..height - 1),
+        x: field.width - 2,
+        y: rand::thread_rng().gen_range(3..field.height - 1),
         started: false,
-        enabled: false,
+        enabled: true,
         completed: false,
         hit: false,
     }
 }
 
-fn display_word(word: &Word, player: &Player) -> String {
-    let wordlength = word.word.len() + word.x as usize;
-    let overflow: i32 = wordlength as i32 - player.screen_width;
-    if overflow < 0 {
-        return word.word.to_string();
-    } else {
-        return word.word[0..word.word.len() - overflow as usize].to_string();
-    }
-}
-
-fn get_random_words_from_file() -> Vec<String> {
+fn get_dictionary_from_file() -> Vec<String> {
     let words = std::fs::read_to_string("words_alpha.txt").unwrap();
-    words.split("\r\n").map(|s| s.to_string()).collect()
+    words
+        .split("\r\n")
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect()
 }
 
-fn update_words(key: String, words: &mut Vec<Word>) {
+fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
+    words.retain(|w| !w.completed || w.word.len() > 0);
     let any_word_started = words.iter().any(|w| w.started);
     for word in words.iter_mut() {
         if word.word.starts_with(&key) && word.started {
             word.word = word.word[1..].to_string();
-            // update player.score
+            player.score += 1;
             word.hit = true;
         } else if !word.started && !any_word_started {
             if word.word.starts_with(&key) {
                 word.started = true;
                 word.word = word.word[1..].to_string();
-                // update player.score
+                player.score += 1;
                 word.hit = true;
             }
         }
     }
 }
-
-const SCREEN_WIDTH: i32 = 132;
-fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, words: &mut Vec<Word>) {
+fn flash_screen() {
+    execute!(io::stdout(), EnterAlternateScreen).unwrap();
+    execute!(io::stdout(), SetBackgroundColor(Color::White)).unwrap();
+    execute!(io::stdout(), Clear(ClearType::All)).unwrap();
+    sleep(Duration::from_millis(10));
+    execute!(io::stdout(), LeaveAlternateScreen).unwrap();
+}
+fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<String>) {
+    let field = Field {
+        width: 80,
+        height: 24,
+    };
+    let mut words: Vec<Word> = Vec::new();
     // read keys from user
-    let mut gametick = 0;
-    while true {
-        
+    let mut gametick = 1;
+    while player.is_alive {
+        let new_word = randomword(&field, dictionary);
+        if words.len() < 1 {
+            words.push(new_word);
+        } else if words.len() < 4 + player.level as usize {
+            let conflict = words
+                .iter()
+                .any(|w| w.word.starts_with(&new_word.word[0..1]));
+            let collision = words.iter().any(|w| w.y == new_word.y);
+            if !conflict && !collision && rand::thread_rng().gen_range(0..200000) < 2 {
+                words.push(new_word);
+            }
+        }
+
         match rx.try_recv() {
             Ok(key) => {
                 if key == "\x1B" {
                     return;
                 }
                 _ = {
-                    update_words(key, words);
+                    update_words(key, &mut words, player);
                 };
             }
             Err(_) => {}
         }
         // update gametick
-        if gametick % 10000/player.level == 0 {
-             draw_words(words);             game
+        if gametick % 5000 / player.level == 0 {
+            draw_words(&mut words, &field);
+            draw_border(&field);
+            draw_toolbar(player);
+            draw_shield(&field);
+            shield_hit(&mut words, player);
         }
         gametick += 1;
+        sleep(Duration::from_micros(10));
     }
     // update board every gametick
-
 }
-
-fn draw_words(words: &mut Vec<Word>) {
+fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
+    if player.shields == 0 {
+        player.is_alive = false;
+    }
+    for word in words.iter_mut() {
+        if word.x <= SHIELD_POSITION && word.word.len() > 0 {
+            flash_screen();
+            player.shields -= 1;
+            word.word = word.word[1..].to_string();
+            word.x += 1;
+        }
+    }
+}
+fn draw_words(words: &mut Vec<Word>, field: &Field) {
     for word in words {
-        draw_word(word, truncate_word(word, word.x));
+        let word2 = truncate_word(word, field.width);
+        draw_word(word, word2, field.width);
     }
 }
 
-fn draw_word(word: &mut Word, truncated_word: String) {
-    execute!(io::stdout(), MoveTo(word.x as u16, word.y as u16)).unwrap();
-    if word.hit || word.started{
-        execute!(
-            io::stdout(),
-            SetForegroundColor(Color::DarkRed),
-            Print(truncated_word),
-            SetColors(Colors::new(Color::Reset, Color::Reset)),
-            PrintStyledContent("  ".white()),
-            ResetColor
-        )
-        .unwrap();
-    } else {
-        execute!(
-            io::stdout(),
-            Print(truncated_word),
-           PrintStyledContent(" ".white()),
-        )
-        .unwrap();
+fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
+    if word.enabled && !word.completed {
+        execute!(io::stdout(), MoveTo(word.x as u16, word.y as u16)).unwrap();
+        if word.x > 1 {
+            word.x -= 1;
+        }
+        if word.hit || word.started {
+            execute!(
+                io::stdout(),
+                SetForegroundColor(Color::DarkRed),
+                Print(truncated_word),
+                SetColors(Colors::new(Color::Reset, Color::Reset)),
+                PrintStyledContent("  ".white()),
+                ResetColor
+            )
+            .unwrap();
+        } else {
+            execute!(
+                io::stdout(),
+                Print(truncated_word),
+                PrintStyledContent(" ".white()),
+            )
+            .unwrap();
+        }
+        if word.word.len() == 0 {
+            word.completed = true;
+        }
+        execute!(io::stdout(), MoveTo(width as u16 - 1, word.y as u16)).unwrap();
+        execute!(io::stdout(), Print(format!("#"))).unwrap();
     }
-    execute!(io::stdout(), MoveTo(SCREEN_WIDTH as u16, w.y as u16)).unwrap();
-    execute!(io::stdout(), Print(format!("#"))).unwrap();
 }
 
-fn truncate_word(word: &mut Word, x: i32) -> String{
-    let wordlength = word.word.len() + word.x as usize;
-    let overflow: i32 = wordlength as i32 - SCREEN_WIDTH;
+fn truncate_word(word: &mut Word, width: i32) -> String {
+    //return word.word.to_string();
+    let wordlength = word.word.len() as i32 + word.x;
+    let overflow = wordlength - width;
     if overflow < 0 {
         return word.word.to_string();
     } else {
         return word.word[0..word.word.len() - overflow as usize].to_string();
-    }
-}
-
-fn fun_name(rx: mpsc::Receiver<String>, height: i32, player: &mut Player) {
-    execute!(io::stdout(), Clear(ClearType::All)).unwrap();
-    let wordlist = get_random_words_from_file();
-    let mut words: Vec<Word> = Vec::new();
-    let mut breakout = false;
-    let mut counter = 0;
-    loop {
-        if breakout {
-            break;
-        }
-        player.level = (player.score / 50) + 1;
-        let sleeptime = Duration::from_millis(80 - (player.level * 2) as u64);
-        draw_shield(WIDTH, height);
-        draw_toolbar(&player);
-        words.retain(|w| !w.completed);
-        if words.len() < 5 + player.level as usize {
-            let new_word = randomword(player.screen_width, height, &wordlist);
-            let conflict = words
-                .iter()
-                .any(|w| w.word.starts_with(&new_word.word[0..1]));
-            if !conflict {
-                words.push(new_word);
-            }
-        }
-        for w in words.iter_mut() {
-            if !w.enabled {
-                if player.level == 1 && rand::thread_rng().gen_range(0..100000) < 3 {
-                    w.enabled = true;
-                } else if rand::thread_rng().gen_range(0..100) < 10 {
-                    w.enabled = true;
-                }
-            }
-            if w.x <= WIDTH {
-                execute!(io::stdout(), EnterAlternateScreen).unwrap();
-                execute!(io::stdout(), SetBackgroundColor(Color::White)).unwrap();
-                execute!(io::stdout(), Clear(ClearType::All)).unwrap();
-                sleep(Duration::from_millis(20));
-                execute!(io::stdout(), LeaveAlternateScreen).unwrap();
-                player.shields -= 1;
-                if player.shields == 0 {
-                    breakout = true;
-                }
-                if w.word.len() > 0 {
-                    w.x += 1;
-                    w.word = w.word[1..].to_string();
-                } else {
-                    w.completed = true;
-                }
-            }
-        }
-        let mut keypressed = "kalle".to_string();
-        match rx.try_recv() {
-            Ok(key) => {
-                if key == "\x1B" {
-                    breakout = true;
-                }
-                keypressed = key;
-            }
-            Err(_) => {}
-        }
-
-        let any_started = words.iter().any(|w| w.started);
-
-        for w in words.iter_mut() {
-            if counter > 5 && w.enabled && !w.completed {
-                w.x -= 1;
-            }
-            if w.enabled && !w.completed {
-                if w.word.starts_with(&keypressed) && w.started {
-                    w.word = w.word[1..].to_string();
-                    w.hit = true;
-                } else if !w.started && !any_started {
-                    if w.word.starts_with(&keypressed) {
-                        w.started = true;
-                        w.word = w.word[1..].to_string();
-                        w.hit = true;
-                    }
-                }
-                execute!(io::stdout(), MoveTo(w.x as u16, w.y as u16)).unwrap();
-                //execute!(io::stdout(), Clear(ClearType::CurrentLine)).unwrap();
-                let word = display_word(&w, &player);
-                let barrier_collision = format!("{}", word);
-
-                if w.hit || w.started{
-                    player.score += 1;
-                    execute!(
-                        io::stdout(),
-                        SetForegroundColor(Color::DarkRed),
-                        Print(barrier_collision),
-                        SetColors(Colors::new(Color::Reset, Color::Reset)),
-                        PrintStyledContent("  ".white()),
-                        ResetColor
-                    )
-                    .unwrap();
-                    w.hit = false;
-                } else {
-                    execute!(
-                        io::stdout(),
-                        Print(barrier_collision),
-                       PrintStyledContent(" ".white()),
-                    )
-                    .unwrap();
-                }
-                execute!(io::stdout(), MoveTo(player.screen_width as u16, w.y as u16)).unwrap();
-                execute!(io::stdout(), Print(format!("#"))).unwrap();
-            }
-            if w.word.len() == 0 {
-                w.completed = true;
-            }
-        }
-        draw_border(player.screen_width, height);
-
-        sleep(sleeptime);
-        if counter > 5 {
-            counter = 0;
-        } else {
-
-            counter += 1;
-        }
     }
 }
 
