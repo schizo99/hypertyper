@@ -53,6 +53,8 @@ fn main() {
                 return;
             }
         }
+        // Sleep for 100 ms
+        sleep(Duration::from_millis(10));
     });
     let mut player = Player {
         name: args.username.to_string(),
@@ -154,14 +156,14 @@ fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
     for word in words.iter_mut() {
         if word.word.starts_with(&key) && word.started {
             word.word = word.word[1..].to_string();
-            word.x += 1;
+            //word.x += 1;
             player.score += 1;
             word.hit = true;
         } else if !word.started && !any_word_started {
             if word.word.starts_with(&key) {
                 word.started = true;
                 word.word = word.word[1..].to_string();
-                word.x += 1;
+                //word.x += 1;
                 player.score += 1;
                 word.hit = true;
             }
@@ -172,7 +174,7 @@ fn flash_screen() {
     execute!(io::stdout(), EnterAlternateScreen).unwrap();
     execute!(io::stdout(), SetBackgroundColor(Color::White)).unwrap();
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
-    sleep(Duration::from_millis(10));
+    //sleep(Duration::from_millis(10));
     execute!(io::stdout(), LeaveAlternateScreen).unwrap();
 }
 fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<String>) {
@@ -181,22 +183,10 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
         height: 24,
     };
     let mut words: Vec<Word> = Vec::new();
-    // read keys from user
-    let mut gametick = 1;
-    while player.is_alive {
-        let new_word = randomword(&field, dictionary);
-        if words.len() < 1 {
-            words.push(new_word);
-        } else if words.len() < 4 + player.level as usize {
-            let conflict = words
-                .iter()
-                .any(|w| w.word.starts_with(&new_word.word[0..1]));
-            let collision = words.iter().any(|w| w.y == new_word.y);
-            if !conflict && !collision && rand::thread_rng().gen_range(0..200000) < 2 {
-                words.push(new_word);
-            }
-        }
 
+    let mut gametick = 1;
+    while player.is_alive { 
+        let new_word = add_word(&field, &mut words, &dictionary);
         match rx.try_recv() {
             Ok(key) => {
                 if key == "\x1B" {
@@ -210,19 +200,39 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
             }
             Err(_) => {}
         }
-        // update gametick
-        if gametick % 5000 / player.level == 0 {
-            draw_words(&mut words, &field);
-            draw_border(&field);
-            draw_toolbar(player);
-            draw_shield(&field);
-            shield_hit(&mut words, player);
-        }
+        draw_words(&mut words, &field);
+        draw_border(&field);
+        draw_toolbar(player);
+        draw_shield(&field);
+        shield_hit(&mut words, player);
+
         gametick += 1;
-        sleep(Duration::from_micros(50));
+        let sleep_time = Duration::from_micros(50000 / player.level as u64);
+        sleep(Duration::from_micros(sleep_time.as_micros() as u64));
     }
     end_game();
 }
+
+fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>) {
+    let mut new_word = randomword(field, dictionary);
+    if words.len() < 1 {
+        words.push(new_word);
+    } else if words.len() < 4 {
+        let mut conflict = words
+            .iter()
+            .any(|w| w.word.starts_with(&new_word.word[0..1]));
+        while conflict {
+            new_word = randomword(field, dictionary);
+            conflict = words
+                .iter()
+                .any(|w| w.word.starts_with(&new_word.word[0..1]));
+            if !conflict {
+                words.push(new_word);
+            }
+        }
+    }
+}
+
 fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
     if player.shields <= 0 {
         player.is_alive = false;
@@ -232,7 +242,7 @@ fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
             flash_screen();
             player.shields -= 1;
             word.word = word.word[1..].to_string();
-            word.x += 1;
+            //word.x += 1;
         }
     }
 }
