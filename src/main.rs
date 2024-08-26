@@ -59,7 +59,8 @@ fn main() {
     });
     let mut player = Player {
         name: args.username.to_string(),
-        shields: 10,
+        shields: 15,
+        max_shields: 15,
         level: 1,
         score: 0,
         screen_width: 100,
@@ -77,10 +78,18 @@ fn main() {
 }
 
 fn draw_shield(field: &Field) {
-    for y in 3..field.height - 1 {
+    execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, 3)).unwrap();
+    println!("|");
+    execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, 4)).unwrap();
+    println!("v");
+    for y in 5..field.height - 3 {
         execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, y as u16)).unwrap();
         print!("#");
     }
+    execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, field.height as u16 - 3)).unwrap();
+    println!("^");
+    execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, field.height as u16 - 2)).unwrap();
+    println!("|");
 }
 
 fn draw_toolbar(player: &Player) {
@@ -88,9 +97,16 @@ fn draw_toolbar(player: &Player) {
     println!("Score: {}", player.score);
     execute!(io::stdout(), MoveTo(25, 1)).unwrap();
     println!("Level: {}", player.level);
-    execute!(io::stdout(), MoveTo(50, 1)).unwrap();
-    if player.shields >= 0 {
-        println!("Shields: {}", ")".repeat(player.shields as usize));
+    execute!(io::stdout(), MoveTo(47, 1)).unwrap();
+    print!("Shields: [ ");
+    for _ in 0..15 {
+        print!(".");
+    }
+    println!(" ]");
+
+    execute!(io::stdout(), MoveTo(58, 1)).unwrap();
+    for _ in 0..player.shields {
+        print!(">");
     }
 }
 
@@ -204,7 +220,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
         gametick += 1;
         sleep(Duration::from_micros(10));
     }
-    // update board every gametick
+    end_game();
 }
 fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
     if player.shields == 0 {
@@ -219,6 +235,7 @@ fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
         }
     }
 }
+
 fn draw_words(words: &mut Vec<Word>, field: &Field) {
     for word in words {
         let word2 = truncate_word(word, field.width);
@@ -235,7 +252,7 @@ fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
         if word.hit || word.started {
             execute!(
                 io::stdout(),
-                SetForegroundColor(Color::DarkRed),
+                SetForegroundColor(Color::Yellow),
                 Print(truncated_word),
                 SetColors(Colors::new(Color::Reset, Color::Reset)),
                 PrintStyledContent("  ".white()),
@@ -276,9 +293,27 @@ fn get_key() -> String {
             KeyCode::Enter => "\n".to_string(),
             KeyCode::Backspace => "\x08".to_string(),
             KeyCode::Delete => "\x7F".to_string(),
-            KeyCode::Esc => "\x1B".to_string(),
+            KeyCode::Esc =>  { end_game(); "".to_string() },
             _ => "".to_string(),
         };
     }
     "".to_string()
 }
+
+fn end_game() {
+    //execute!(io::stdout(), Clear(ClearType::All)).unwrap();
+    //execute!(io::stdout(), Show).unwrap();
+    disable_raw_mode().unwrap();
+    //execute!(io::stdout(), LeaveAlternateScreen).unwrap();
+    println!("");
+
+    // Move to the middle of the screen and write a message
+    execute!(io::stdout(), MoveTo(40, 12)).unwrap();
+    println!("Game over!");
+
+    // Sleep for 1000 ms and block the main thread
+    sleep(Duration::from_millis(1000));
+    execute!(io::stdout(), MoveTo(0, 24 + 1)).unwrap();
+
+    std::process::exit(0);
+}   
