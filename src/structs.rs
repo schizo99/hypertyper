@@ -36,6 +36,7 @@ pub struct Word {
 pub struct Player {
     pub name: String,
     pub shields: i32,
+    pub max_shields: i32,
     pub level: i32,
     pub score: i32,
     pub is_alive: bool,
