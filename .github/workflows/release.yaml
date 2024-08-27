@@ -1,0 +1,34 @@
+name: Release workflow
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build and create release
+    env:
+      ARTIFACT_NAME: hypertyper
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build
+      run: cargo build --release --target x86_64-unknown-linux-gnu
+      env:
+        RUSTFLAGS: "-C target-feature=+crt-static"
+
+    - name: Create tarball
+      run: tar -czf ${{ env.ARTIFACT_NAME }}_x86_64-linux.tar.gz LICENSE README.md -C target/x86_64-unknown-linux-gnu/release ${{ env.ARTIFACT_NAME }}
+
+    - name: Create release
+      id: create_release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          ${{ env.ARTIFACT_NAME }}_x86_64-linux.tar.gz
+        generate_release_notes: true

@@ -1,0 +1,32 @@
+name: Test build and cargo fmt check
+on:
+  pull_request:
+    branches:
+        - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build and cargo fmt check
+    env:
+      ARTIFACT_NAME: hypertyper
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Format check
+      run: cargo fmt --check
+
+    - name: Build
+      run: cargo build --release --target x86_64-unknown-linux-gnu
+      env:
+        RUSTFLAGS: "-C target-feature=+crt-static"
+
+    - name: Create tarball
+      run: tar -czf ${{ env.ARTIFACT_NAME }}_x86_64-linux.tar.gz LICENSE README.md -C target/x86_64-unknown-linux-gnu/release ${{ env.ARTIFACT_NAME }}
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ARTIFACT_NAME }}_x86_64-linux
+        path: ${{ env.ARTIFACT_NAME }}_x86_64-linux.tar.gz
