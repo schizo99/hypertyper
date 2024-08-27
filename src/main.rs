@@ -42,7 +42,7 @@ fn main() {
             }
         }
         // Sleep for 100 ms
-        sleep(Duration::from_millis(10));
+        sleep(Duration::from_millis(1));
     });
     let mut player = Player {
         name: args.username.to_string(),
@@ -143,6 +143,7 @@ fn randomword(field: &Field, wordlist: &Vec<String>) -> Word {
     let word = &wordlist[rand::thread_rng().gen_range(0..wordlist.len() as usize)];
     Word {
         word: word.to_string(),
+        original_word: word.to_string(),
         x: field.width - 2,
         y: rand::thread_rng().gen_range(5..field.height - 3),
         started: false,
@@ -161,24 +162,29 @@ fn get_dictionary_from_file() -> Vec<String> {
         .collect()
 }
 
-fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
+fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) -> bool {
     let any_word_started = words.iter().any(|w| w.started);
+
+    let mut hit_letter = false;
     for word in words.iter_mut() {
         if word.word.starts_with(&key) && word.started {
             word.word = word.word[1..].to_string();
             word.x += 1;
             player.score += 1;
             word.hit = true;
-        } else if !word.started && !any_word_started {
-            if word.word.starts_with(&key) {
-                word.started = true;
-                word.word = word.word[1..].to_string();
-                word.x += 1;
-                player.score += 1;
-                word.hit = true;
-            }
+            hit_letter = true;
+        } 
+        else if word.word.starts_with(&key) && !any_word_started {
+            word.started = true;
+            word.word = word.word[1..].to_string();
+            word.x += 1;
+            player.score += 1;
+            word.hit = true;
+            hit_letter = true;
+            continue;
         }
     }
+    hit_letter
 }
 fn flash_screen() {
     execute!(io::stdout(), EnterAlternateScreen).unwrap();
@@ -206,8 +212,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
                     player.is_alive = false;
                 }
                 _ = {
-                    update_words(key, &mut words, player);
-                    draw_words(&mut words, &field, true);
+                    while update_words(key.clone(), &mut words, player) { draw_words(&mut words, &field, true); draw_border(&field); }
                 };
             }
             Err(_) => {}
@@ -220,7 +225,8 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
             draw_words(&mut words, &field, false);
             draw_border(&field);
             draw_toolbar(player);
-            println!("{}", speed);
+            //println!("{}", speed);
+            move_words(&mut words);
             draw_shield(&field);
             shield_hit(&mut words, player);
         }
@@ -246,7 +252,7 @@ fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>) {
     } else if words.len() < 5 {
         let mut conflict = words
             .iter()
-            .any(|w| w.word.starts_with(&new_word.word[0..1]));
+            .any(|w| w.original_word.starts_with(&new_word.word[0..1]));
         while conflict {
             new_word = randomword(field, dictionary);
             let distance = words
@@ -271,7 +277,7 @@ fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
         player.is_alive = false;
     }
     for word in words.iter_mut() {
-        if word.x <= SHIELD_POSITION && word.word.len() > 0 {
+        if word.x <= SHIELD_POSITION - 1 && word.word.len() > 0 {
             flash_screen();
             player.shields -= 1;
             word.word = word.word[1..].to_string();
@@ -280,25 +286,23 @@ fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
     }
 }
 
+fn move_words(words: &mut Vec<Word>) {
+    for word in words.iter_mut() {
+        word.x -= 1;
+    }
+}
+
 fn draw_words(words: &mut Vec<Word>, field: &Field, hit: bool) {
     for word in words {
-        let word2 = format!(" {}", truncate_word(word, field.width - 1));
-        if hit {
-            if word.started && word.word.len() > 0 {
-                draw_word(word, word2, field.width, hit);
-            }
-        } else {
-            draw_word(word, word2, field.width, hit);
-        }
+        let mut word2: String;
+        word2 = format!(" {}", truncate_word(word, field.width - 1));
+        draw_word(word, word2, field.width, hit);
     }
 }
 
 fn draw_word(word: &mut Word, truncated_word: String, width: i32, hit: bool) {
     if word.enabled && !word.completed {
         execute!(io::stdout(), MoveTo(word.x as u16, word.y as u16)).unwrap();
-        if word.x > 1 && !hit {
-            word.x -= 1;
-        }
         if word.hit || word.started {
             execute!(
                 io::stdout(),
@@ -310,7 +314,6 @@ fn draw_word(word: &mut Word, truncated_word: String, width: i32, hit: bool) {
             )
             .unwrap();
             execute!(io::stdout(), MoveTo(width as u16 - 1, word.y as u16)).unwrap();
-            execute!(io::stdout(), Print(format!("|"))).unwrap();
         } else {
             execute!(
                 io::stdout(),
@@ -326,7 +329,6 @@ fn draw_word(word: &mut Word, truncated_word: String, width: i32, hit: bool) {
 }
 
 fn truncate_word(word: &mut Word, width: i32) -> String {
-    //return word.word.to_string();
     let wordlength = word.word.len() as i32 + word.x;
     let overflow = wordlength - width;
     if overflow < 0 {
