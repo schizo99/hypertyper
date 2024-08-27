@@ -238,11 +238,19 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
     end_game();
 }
 
+fn update_board(words: &mut Vec<Word>, field: &Field, player: &mut Player) {
+    draw_words(words, field, false);
+    draw_border(field);
+    draw_toolbar(player);
+    draw_shield(field);
+    shield_hit(words, player);
+}
+
 fn calculate_speed(player: &mut Player) -> i32 {
     if player.level < 10 {
-        return 200 + (player.level * 50 + 1) * 5;
+        return INITIAL_SPEED + (player.level * 50 + 1) * 5;
     }
-    200 + ((player.level * 30 + 1) * 5)
+    INITIAL_SPEED + ((player.level * 30 + 1) * 5)
 }
 
 fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>) {
