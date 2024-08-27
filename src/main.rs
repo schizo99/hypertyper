@@ -181,7 +181,6 @@ fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) -> bool
             player.score += 1;
             word.hit = true;
             hit_letter = true;
-            continue;
         }
     }
     hit_letter
@@ -190,8 +189,9 @@ fn flash_screen() {
     execute!(io::stdout(), EnterAlternateScreen).unwrap();
     execute!(io::stdout(), SetBackgroundColor(Color::White)).unwrap();
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
-    //sleep(Duration::from_millis(10));
+    sleep(Duration::from_millis(10));
     execute!(io::stdout(), LeaveAlternateScreen).unwrap();
+
 }
 fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<String>) {
     let field = Field {
@@ -225,7 +225,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
             draw_words(&mut words, &field, false);
             draw_border(&field);
             draw_toolbar(player);
-            //println!("{}", speed);
+            // DEBUG STUFF, I GUESS??111 - println!("{}", speed);
             move_words(&mut words);
             draw_shield(&field);
             shield_hit(&mut words, player);
@@ -353,19 +353,13 @@ fn get_key() -> String {
 }
 
 fn end_game() {
-    //execute!(io::stdout(), Clear(ClearType::All)).unwrap();
-    //execute!(io::stdout(), Show).unwrap();
     disable_raw_mode().unwrap();
-    //execute!(io::stdout(), LeaveAlternateScreen).unwrap();
     println!("");
 
-    // Move to the middle of the screen and write a message
     execute!(io::stdout(), MoveTo(40, 12)).unwrap();
     println!("Game over!");
 
     // Sleep for 1000 ms and block the main thread
     sleep(Duration::from_millis(1000));
     execute!(io::stdout(), MoveTo(0, 24 + 1)).unwrap();
-
-    //std::process::exit(0);
 }
