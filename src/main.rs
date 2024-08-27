@@ -2,7 +2,7 @@
 /// två ord som börjar på samma bokstav får inte finnas på spelplanen samtidigt, så länge inte en spelare börjat skriva på ett ord
 /// för varje bokstav som går igenom muren så förlorar du en # (sköld)
 use std::{
-    io::{self, Read},
+    io::{self},
     sync::mpsc,
     thread::{self, sleep},
     time::Duration,
@@ -46,11 +46,8 @@ fn main() {
     let mut player = Player {
         name: args.username.to_string(),
         shields: 15,
-        max_shields: 15,
         level: 1,
         score: 0,
-        screen_width: 100,
-        screen_height: 30,
         is_alive: true,
     };
     let dictionary = get_dictionary_from_file();

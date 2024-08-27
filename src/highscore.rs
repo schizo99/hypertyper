@@ -81,10 +81,7 @@ pub fn handle_highscore(args: &Args) {
                 name: "show_highscore".to_string(),
                 score: 0,
                 shields: 3,
-                max_shields: 15,
                 level: 0,
-                screen_width: 0,
-                screen_height: 0,
                 is_alive: true,
             },
         );
