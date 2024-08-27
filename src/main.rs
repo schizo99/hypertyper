@@ -19,7 +19,7 @@ use crossterm::{
         SetForegroundColor, Stylize,
     },
     terminal::{
-        disable_raw_mode, enable_raw_mode, size, Clear, ClearType, EnterAlternateScreen,
+        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
         LeaveAlternateScreen,
     },
 };
@@ -30,19 +30,7 @@ use structs::*;
 fn main() {
     let args = Args::parse();
     handle_highscore(&args);
-    execute!(io::stdout(), Clear(ClearType::All)).unwrap();
-    execute!(io::stdout(), Hide).unwrap();
-    enable_raw_mode().unwrap();
-    execute!(io::stdout(), MoveTo(0, 0)).unwrap();
-    println!("Welcome, press space to start the game!");
-    // wait until space is pressed
-    loop {
-        let key = get_key();
-        if key == " " {
-            break;
-        }
-    }
-    execute!(io::stdout(), Clear(ClearType::All)).unwrap();
+    intro();
     // get size of terminal
     let (tx, rx) = mpsc::channel();
     let get_key = thread::spawn(move || loop {
@@ -76,6 +64,22 @@ fn main() {
     execute!(io::stdout(), Show).unwrap();
 }
 
+fn intro() {
+    execute!(io::stdout(), Clear(ClearType::All)).unwrap();
+    execute!(io::stdout(), Hide).unwrap();
+    enable_raw_mode().unwrap();
+    execute!(io::stdout(), MoveTo(0, 0)).unwrap();
+    println!("Welcome, press space to start the game!");
+    // wait until space is pressed
+    loop {
+        let key = get_key();
+        if key == " " {
+            break;
+        }
+    }
+    execute!(io::stdout(), Clear(ClearType::All)).unwrap();
+}
+
 fn draw_shield(field: &Field) {
     execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, 3)).unwrap();
     println!("|");
@@ -85,9 +89,17 @@ fn draw_shield(field: &Field) {
         execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, y as u16)).unwrap();
         print!("#");
     }
-    execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, field.height as u16 - 3)).unwrap();
+    execute!(
+        io::stdout(),
+        MoveTo(SHIELD_POSITION as u16, field.height as u16 - 3)
+    )
+    .unwrap();
     println!("^");
-    execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, field.height as u16 - 2)).unwrap();
+    execute!(
+        io::stdout(),
+        MoveTo(SHIELD_POSITION as u16, field.height as u16 - 2)
+    )
+    .unwrap();
     println!("|");
 }
 
@@ -120,12 +132,11 @@ fn draw_border(field: &Field) {
         execute!(io::stdout(), MoveTo(field.width as u16 - 1, y as u16)).unwrap();
         print!("|");
     }
-    execute!(io::stdout(), MoveTo(0, field.height as u16 - 1 )).unwrap();
+    execute!(io::stdout(), MoveTo(0, field.height as u16 - 1)).unwrap();
 
     print!("\\");
     print!("{}", "-".repeat(field.width as usize - 2));
     print!("/");
-
 }
 
 fn randomword(field: &Field, wordlist: &Vec<String>) -> Word {
@@ -196,24 +207,36 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
                 }
                 _ = {
                     update_words(key, &mut words, player);
-                    update_hit_word(&mut words, &field);
+                    draw_words(&mut words, &field, true);
                 };
             }
             Err(_) => {}
         }
-        if gametick % 10000 == 0 {
-            draw_words(&mut words, &field);
+        if player.score > 0 && player.score / 50 > 0 {
+            player.level = player.score / 50 + 1;
+        }
+        let speed = calculate_speed(player);
+        if gametick % (7000 - speed) == 0 {
+            draw_words(&mut words, &field, false);
             draw_border(&field);
             draw_toolbar(player);
+            println!("{}", speed);
             draw_shield(&field);
             shield_hit(&mut words, player);
         }
 
         gametick += 1;
-        let sleep_time = Duration::from_micros(50 / player.level as u64);
+        let sleep_time = Duration::from_micros(30);
         sleep(Duration::from_micros(sleep_time.as_micros() as u64));
     }
     end_game();
+}
+
+fn calculate_speed(player: &mut Player) -> i32 {
+    if player.level < 10 {
+        return 200 + (player.level * 50 + 1) * 5;
+    }
+    200 + ((player.level * 30 + 1) * 5)
 }
 
 fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>) {
@@ -226,10 +249,13 @@ fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>) {
             .any(|w| w.word.starts_with(&new_word.word[0..1]));
         while conflict {
             new_word = randomword(field, dictionary);
-            let distance = words.iter().map(|w| w.x + w.word.len() as i32).max().unwrap() < new_word.x - 5;
-            let collision = words
+            let distance = words
                 .iter()
-                .any(|w| w.y == new_word.y);
+                .map(|w| w.x as i32 - w.word.len() as i32)
+                .max()
+                .unwrap()
+                < new_word.x - rand::thread_rng().gen_range(11..30);
+            let collision = words.iter().any(|w| w.y == new_word.y);
             conflict = words
                 .iter()
                 .any(|w| w.word.starts_with(&new_word.word[0..1]));
@@ -254,24 +280,25 @@ fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
     }
 }
 
-fn draw_words(words: &mut Vec<Word>, field: &Field) {
+fn draw_words(words: &mut Vec<Word>, field: &Field, hit: bool) {
     for word in words {
-        let word2 = format!(" {}",truncate_word(word, field.width -1));
-        draw_word(word, word2, field.width);
-    }
-}
-
-fn update_hit_word(words: &mut Vec<Word>, field: &Field) {
-    for word in words {
-        if word.started && word.word.len() > 0 {
-            let word2 = format!(" {}",truncate_word(word, field.width -1));
-            draw_hit_word(word, word2, field.width);
+        let word2 = format!(" {}", truncate_word(word, field.width - 1));
+        if hit {
+            if word.started && word.word.len() > 0 {
+                draw_word(word, word2, field.width, hit);
+            }
+        } else {
+            draw_word(word, word2, field.width, hit);
         }
     }
 }
-fn draw_hit_word(word: &mut Word, truncated_word: String, width: i32) {
+
+fn draw_word(word: &mut Word, truncated_word: String, width: i32, hit: bool) {
     if word.enabled && !word.completed {
         execute!(io::stdout(), MoveTo(word.x as u16, word.y as u16)).unwrap();
+        if word.x > 1 && !hit {
+            word.x -= 1;
+        }
         if word.hit || word.started {
             execute!(
                 io::stdout(),
@@ -282,32 +309,8 @@ fn draw_hit_word(word: &mut Word, truncated_word: String, width: i32) {
                 ResetColor
             )
             .unwrap();
-        }
-        if word.word.len() == 0 {
-            word.completed = true;
-        }
-        execute!(io::stdout(), MoveTo(width as u16 - 1, word.y as u16)).unwrap();
-        execute!(io::stdout(), Print(format!("|"))).unwrap();
-    }
-}
-
-
-fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
-    if word.enabled && !word.completed {
-        execute!(io::stdout(), MoveTo(word.x as u16, word.y as u16)).unwrap();
-        if word.x > 1 {
-            word.x -= 1;
-        }
-        if word.hit || word.started {
-            execute!(
-                io::stdout(),
-                SetForegroundColor(Color::Yellow),
-                Print(truncated_word),
-                SetColors(Colors::new(Color::Reset, Color::Reset)),
-                PrintStyledContent("               ".white()),
-                ResetColor
-            )
-            .unwrap();
+            execute!(io::stdout(), MoveTo(width as u16 - 1, word.y as u16)).unwrap();
+            execute!(io::stdout(), Print(format!("|"))).unwrap();
         } else {
             execute!(
                 io::stdout(),
@@ -319,8 +322,6 @@ fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
         if word.word.len() == 0 {
             word.completed = true;
         }
-        execute!(io::stdout(), MoveTo(width as u16 - 1, word.y as u16)).unwrap();
-        execute!(io::stdout(), Print(format!("#"))).unwrap();
     }
 }
 
@@ -342,7 +343,7 @@ fn get_key() -> String {
             KeyCode::Enter => "\n".to_string(),
             KeyCode::Backspace => "\x08".to_string(),
             KeyCode::Delete => "\x7F".to_string(),
-            KeyCode::Esc =>  "EXIT".to_string(),
+            KeyCode::Esc => "EXIT".to_string(),
             _ => "".to_string(),
         };
     }
