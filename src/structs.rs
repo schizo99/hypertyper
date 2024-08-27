@@ -22,8 +22,10 @@ pub struct Field {
     pub width: i32,
     pub height: i32,
 }
+#[derive(Clone)]
 pub struct Word {
     pub word: String,
+    pub original_word: String,
     pub x: i32,
     pub y: i32,
     pub started: bool,
