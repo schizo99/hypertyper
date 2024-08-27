@@ -148,8 +148,6 @@ fn draw_border(field: &Field) {
     // Set color to dark grey
     execute!(io::stdout(), SetForegroundColor(Color::DarkGrey)).unwrap();
 
-
-
     execute!(io::stdout(), MoveTo(0, 2)).unwrap();
     print!("/");
     print!("{}", "-".repeat(field.width as usize - 2));
@@ -194,7 +192,7 @@ fn get_dictionary_from_file() -> Vec<String> {
 
 fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
     // Check if key is empty or space or does not contai a character
-    
+
     if key.trim().is_empty() {
         return;
     }
@@ -378,7 +376,7 @@ fn get_key() -> String {
 
 fn end_game() {
     disable_raw_mode().unwrap();
-    
+
     println!("");
     execute!(io::stdout(), MoveTo(40, 12)).unwrap();
     execute!(io::stdout(), SetBackgroundColor(Color::White)).unwrap();
