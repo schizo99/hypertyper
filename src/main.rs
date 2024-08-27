@@ -173,8 +173,7 @@ fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) -> bool
             player.score += 1;
             word.hit = true;
             hit_letter = true;
-        } 
-        else if word.word.starts_with(&key) && !any_word_started {
+        } else if word.word.starts_with(&key) && !any_word_started {
             word.started = true;
             word.word = word.word[1..].to_string();
             word.x += 1;
@@ -191,7 +190,6 @@ fn flash_screen() {
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
     sleep(Duration::from_millis(10));
     execute!(io::stdout(), LeaveAlternateScreen).unwrap();
-
 }
 fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<String>) {
     let field = Field {
@@ -212,7 +210,10 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
                     player.is_alive = false;
                 }
                 _ = {
-                    while update_words(key.clone(), &mut words, player) { draw_words(&mut words, &field); draw_border(&field); }
+                    while update_words(key.clone(), &mut words, player) {
+                        draw_words(&mut words, &field);
+                        draw_border(&field);
+                    }
                 };
             }
             Err(_) => {}
