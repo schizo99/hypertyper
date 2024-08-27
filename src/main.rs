@@ -41,8 +41,7 @@ fn main() {
                 return;
             }
         }
-        // Sleep for 100 ms
-        sleep(Duration::from_millis(1));
+        sleep(Duration::from_millis(10));
     });
     let mut player = Player {
         name: args.username.to_string(),
@@ -162,33 +161,29 @@ fn get_dictionary_from_file() -> Vec<String> {
         .collect()
 }
 
-fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) -> bool {
+fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
     let any_word_started = words.iter().any(|w| w.started);
 
-    let mut hit_letter = false;
     for word in words.iter_mut() {
         if word.word.starts_with(&key) && word.started {
             word.word = word.word[1..].to_string();
             word.x += 1;
             player.score += 1;
             word.hit = true;
-            hit_letter = true;
         } else if word.word.starts_with(&key) && !any_word_started {
             word.started = true;
             word.word = word.word[1..].to_string();
             word.x += 1;
             player.score += 1;
             word.hit = true;
-            hit_letter = true;
         }
     }
-    hit_letter
 }
 fn flash_screen() {
     execute!(io::stdout(), EnterAlternateScreen).unwrap();
     execute!(io::stdout(), SetBackgroundColor(Color::White)).unwrap();
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
-    sleep(Duration::from_millis(10));
+    sleep(Duration::from_millis(5));
     execute!(io::stdout(), LeaveAlternateScreen).unwrap();
 }
 fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<String>) {
@@ -200,17 +195,16 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
 
     let mut gametick = 1;
     while player.is_alive {
-        add_word(&field, &mut words, &dictionary);
+        add_word(&field, &mut words, &dictionary, player);
         words.retain(|w| !w.completed || w.word.len() > 0);
         match rx.try_recv() {
             Ok(key) => {
-                if key == "\x1B" {
-                    return;
-                } else if key == "EXIT" {
+                if key == "EXIT" {
                     player.is_alive = false;
                 }
                 _ = {
-                    while update_words(key.clone(), &mut words, player) {
+                    if key.to_string().is_ascii() && key.len() == 1 {
+                        update_words(key.clone(), &mut words, player);
                         draw_words(&mut words, &field);
                         draw_border(&field);
                     }
@@ -222,35 +216,31 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
             player.level = player.score / 50 + 1;
         }
         let speed = calculate_speed(player);
-        if gametick % (7000 - speed) == 0 {
+        if gametick % (5000 - speed) == 0 {
             draw_words(&mut words, &field);
             draw_border(&field);
             draw_toolbar(player);
-            // DEBUG STUFF, I GUESS??111 - println!("{}", speed);
             move_words(&mut words);
             draw_shield(&field);
             shield_hit(&mut words, player);
         }
 
         gametick += 1;
-        let sleep_time = Duration::from_micros(30);
+        let sleep_time = Duration::from_micros(25);
         sleep(Duration::from_micros(sleep_time.as_micros() as u64));
     }
     end_game();
 }
 
 fn calculate_speed(player: &mut Player) -> i32 {
-    if player.level < 10 {
-        return INITIAL_SPEED + (player.level * 50 + 1) * 5;
-    }
-    INITIAL_SPEED + ((player.level * 30 + 1) * 5)
+    INITIAL_SPEED + ((player.level * 50 + 1) * 6)
 }
 
-fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>) {
+fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>, player: &Player) {
     let mut new_word = randomword(field, dictionary);
     if words.len() < 1 {
         words.push(new_word);
-    } else if words.len() < 5 {
+    } else if words.len() < player.level as usize + 1 + (player.level as usize / 3) {
         let mut conflict = words
             .iter()
             .any(|w| w.original_word.starts_with(&new_word.word[0..1]));
@@ -261,7 +251,7 @@ fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>) {
                 .map(|w| w.x as i32 - w.word.len() as i32)
                 .max()
                 .unwrap()
-                < new_word.x - rand::thread_rng().gen_range(11..30);
+                < new_word.x - rand::thread_rng().gen_range(15..30);
             let collision = words.iter().any(|w| w.y == new_word.y);
             conflict = words
                 .iter()
@@ -342,9 +332,6 @@ fn get_key() -> String {
     if let Event::Key(KeyEvent { code, .. }) = read().unwrap() {
         return match code {
             KeyCode::Char(c) => c.to_string(),
-            KeyCode::Enter => "\n".to_string(),
-            KeyCode::Backspace => "\x08".to_string(),
-            KeyCode::Delete => "\x7F".to_string(),
             KeyCode::Esc => "EXIT".to_string(),
             _ => "".to_string(),
         };
