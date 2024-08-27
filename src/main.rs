@@ -193,7 +193,9 @@ fn get_dictionary_from_file() -> Vec<String> {
 }
 
 fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
-    if key == "" {
+    // Check if key is empty or space or does not contai a character
+    
+    if key.trim().is_empty() {
         return;
     }
 
@@ -238,7 +240,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
                     player.is_alive = false;
                 }
                 _ = {
-                    if key.to_string().is_ascii() && key.len() == 1 {
+                    if key.to_string().is_ascii() && key.len() == 1 && !key.trim().is_empty() {
                         update_words(key.clone(), &mut words, player);
                         draw_words(&mut words, &field);
                         draw_border(&field);
