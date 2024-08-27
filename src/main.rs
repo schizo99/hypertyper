@@ -212,7 +212,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
                     player.is_alive = false;
                 }
                 _ = {
-                    while update_words(key.clone(), &mut words, player) { draw_words(&mut words, &field, true); draw_border(&field); }
+                    while update_words(key.clone(), &mut words, player) { draw_words(&mut words, &field); draw_border(&field); }
                 };
             }
             Err(_) => {}
@@ -222,7 +222,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
         }
         let speed = calculate_speed(player);
         if gametick % (7000 - speed) == 0 {
-            draw_words(&mut words, &field, false);
+            draw_words(&mut words, &field);
             draw_border(&field);
             draw_toolbar(player);
             // DEBUG STUFF, I GUESS??111 - println!("{}", speed);
@@ -236,14 +236,6 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
         sleep(Duration::from_micros(sleep_time.as_micros() as u64));
     }
     end_game();
-}
-
-fn update_board(words: &mut Vec<Word>, field: &Field, player: &mut Player) {
-    draw_words(words, field, false);
-    draw_border(field);
-    draw_toolbar(player);
-    draw_shield(field);
-    shield_hit(words, player);
 }
 
 fn calculate_speed(player: &mut Player) -> i32 {
@@ -300,15 +292,14 @@ fn move_words(words: &mut Vec<Word>) {
     }
 }
 
-fn draw_words(words: &mut Vec<Word>, field: &Field, hit: bool) {
+fn draw_words(words: &mut Vec<Word>, field: &Field) {
     for word in words {
-        let mut word2: String;
-        word2 = format!(" {}", truncate_word(word, field.width - 1));
-        draw_word(word, word2, field.width, hit);
+        let word2 = format!(" {}", truncate_word(word, field.width - 1));
+        draw_word(word, word2, field.width);
     }
 }
 
-fn draw_word(word: &mut Word, truncated_word: String, width: i32, hit: bool) {
+fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
     if word.enabled && !word.completed {
         execute!(io::stdout(), MoveTo(word.x as u16, word.y as u16)).unwrap();
         if word.hit || word.started {
