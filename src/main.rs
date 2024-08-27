@@ -204,12 +204,11 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
                 }
                 _ = {
                     if key.to_string().is_ascii() && key.len() == 1 {
-                            update_words(key.clone(), &mut words, player);
-                            draw_words(&mut words, &field);
-                            draw_border(&field);
-                        }
-                    };
-                
+                        update_words(key.clone(), &mut words, player);
+                        draw_words(&mut words, &field);
+                        draw_border(&field);
+                    }
+                };
             }
             Err(_) => {}
         }
