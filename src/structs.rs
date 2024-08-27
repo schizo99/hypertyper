@@ -1,6 +1,7 @@
 use clap::Parser;
 
 pub const SHIELD_POSITION: i32 = 15;
+pub const INITIAL_SPEED: i32 = 200;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
