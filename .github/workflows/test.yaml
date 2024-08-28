@@ -3,7 +3,11 @@ on:
   pull_request:
     branches:
         - main
-
+    paths:
+      - 'src/**'
+      - 'Cargo.toml'
+      - '.github/workflows/**'
+      - '*.txt'
 jobs:
   build:
     runs-on: ubuntu-latest
