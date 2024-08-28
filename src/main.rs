@@ -237,6 +237,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
                 _ = {
                     if key.to_string().is_ascii() && key.len() == 1 && !key.trim().is_empty() {
                         update_words(key.clone(), &mut words, player);
+                        draw_words(&mut words, &field);
                         draw_border(&field);
                     }
                 };
@@ -247,7 +248,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
             player.level = player.score / 50 + 1;
         }
         let speed = calculate_speed(player);
-        if gametick % (5000 - speed) == 0 {
+        if gametick % (50 - speed) == 0 {
             draw_words(&mut words, &field);
             draw_border(&field);
             draw_toolbar(player);
@@ -257,14 +258,14 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
         }
 
         gametick += 1;
-        let sleep_time = Duration::from_micros(25);
+        let sleep_time = Duration::from_millis(2);
         sleep(Duration::from_micros(sleep_time.as_micros() as u64));
     }
     end_game();
 }
 
 fn calculate_speed(player: &mut Player) -> i32 {
-    INITIAL_SPEED + player.level * 50 as i32
+    INITIAL_SPEED + player.level * 2 as i32
 }
 
 fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>, player: &Player) {
