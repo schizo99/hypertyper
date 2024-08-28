@@ -35,14 +35,10 @@ pub struct Word {
     pub hit: bool,
 }
 
-#[derive(Debug)]
 pub struct Player {
     pub name: String,
     pub shields: i32,
-    pub max_shields: i32,
     pub level: i32,
     pub score: i32,
     pub is_alive: bool,
-    pub screen_width: i32,
-    pub screen_height: i32,
 }

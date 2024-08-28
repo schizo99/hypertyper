@@ -46,11 +46,8 @@ fn main() {
     let mut player = Player {
         name: args.username.to_string(),
         shields: 15,
-        max_shields: 15,
         level: 1,
         score: 0,
-        screen_width: 100,
-        screen_height: 30,
         is_alive: true,
     };
     let dictionary = get_dictionary_from_file();
@@ -65,10 +62,26 @@ fn main() {
 
 fn intro() {
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
+    execute!(io::stdout(), MoveTo(0, 0)).unwrap();
+
+    // Set foreground color to red
+    execute!(io::stdout(), SetForegroundColor(Color::Red)).unwrap();
+
+    // Read the splash.txt file and display it on screen
+    let splash = std::fs::read_to_string("splash.txt").unwrap();
+    println!("{}", splash);
+
+    // Reset the color to default
+    execute!(io::stdout(), ResetColor).unwrap();
     execute!(io::stdout(), Hide).unwrap();
     enable_raw_mode().unwrap();
-    execute!(io::stdout(), MoveTo(0, 0)).unwrap();
-    println!("Welcome, press space to start the game!");
+
+    // Sleep for 500 ms
+    sleep(Duration::from_millis(500));
+
+    println!(
+        "                                            (Welcome! Press space to start the game!)"
+    );
     // wait until space is pressed
     loop {
         let key = get_key();
@@ -80,19 +93,25 @@ fn intro() {
 }
 
 fn draw_shield(field: &Field) {
+    execute!(io::stdout(), SetForegroundColor(Color::Red)).unwrap();
     execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, 3)).unwrap();
     println!("|");
     execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, 4)).unwrap();
     println!("v");
+    execute!(io::stdout(), ResetColor).unwrap();
+
+    execute!(io::stdout(), SetForegroundColor(Color::Blue)).unwrap();
     for y in 5..field.height - 3 {
         execute!(io::stdout(), MoveTo(SHIELD_POSITION as u16, y as u16)).unwrap();
         print!("#");
     }
+    execute!(io::stdout(), ResetColor).unwrap();
     execute!(
         io::stdout(),
         MoveTo(SHIELD_POSITION as u16, field.height as u16 - 3)
     )
     .unwrap();
+    execute!(io::stdout(), SetForegroundColor(Color::Red)).unwrap();
     println!("^");
     execute!(
         io::stdout(),
@@ -100,10 +119,12 @@ fn draw_shield(field: &Field) {
     )
     .unwrap();
     println!("|");
+    execute!(io::stdout(), ResetColor).unwrap();
 }
 
 fn draw_toolbar(player: &Player) {
     execute!(io::stdout(), MoveTo(5, 1), Clear(ClearType::CurrentLine)).unwrap();
+
     println!("Score: {}", player.score);
     execute!(io::stdout(), MoveTo(25, 1)).unwrap();
     println!("Level: {}", player.level);
@@ -121,6 +142,9 @@ fn draw_toolbar(player: &Player) {
 }
 
 fn draw_border(field: &Field) {
+    // Set color to dark grey
+    execute!(io::stdout(), SetForegroundColor(Color::DarkGrey)).unwrap();
+
     execute!(io::stdout(), MoveTo(0, 2)).unwrap();
     print!("/");
     print!("{}", "-".repeat(field.width as usize - 2));
@@ -136,6 +160,8 @@ fn draw_border(field: &Field) {
     print!("\\");
     print!("{}", "-".repeat(field.width as usize - 2));
     print!("/");
+    // Reset the color to default
+    execute!(io::stdout(), ResetColor).unwrap();
 }
 
 fn randomword(field: &Field, wordlist: &Vec<String>) -> Word {
@@ -162,6 +188,12 @@ fn get_dictionary_from_file() -> Vec<String> {
 }
 
 fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
+    // Check if key is empty or space or does not contai a character
+
+    if key.trim().is_empty() {
+        return;
+    }
+
     let any_word_started = words.iter().any(|w| w.started);
 
     for word in words.iter_mut() {
@@ -203,9 +235,8 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
                     player.is_alive = false;
                 }
                 _ = {
-                    if key.to_string().is_ascii() && key.len() == 1 {
+                    if key.to_string().is_ascii() && key.len() == 1 && !key.trim().is_empty() {
                         update_words(key.clone(), &mut words, player);
-                        draw_words(&mut words, &field);
                         draw_border(&field);
                     }
                 };
@@ -233,14 +264,14 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
 }
 
 fn calculate_speed(player: &mut Player) -> i32 {
-    INITIAL_SPEED + ((player.level * 50 + 1) * 6)
+    INITIAL_SPEED + player.level * 50 as i32
 }
 
 fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>, player: &Player) {
     let mut new_word = randomword(field, dictionary);
     if words.len() < 1 {
         words.push(new_word);
-    } else if words.len() < player.level as usize + 1 + (player.level as usize / 3) {
+    } else if words.len() < player.level as usize + 1 + (player.level as usize / 8) {
         let mut conflict = words
             .iter()
             .any(|w| w.original_word.starts_with(&new_word.word[0..1]));
@@ -251,7 +282,7 @@ fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>, play
                 .map(|w| w.x as i32 - w.word.len() as i32)
                 .max()
                 .unwrap()
-                < new_word.x - rand::thread_rng().gen_range(15..30);
+                < new_word.x - rand::thread_rng().gen_range(16..30);
             let collision = words.iter().any(|w| w.y == new_word.y);
             conflict = words
                 .iter()
@@ -341,12 +372,16 @@ fn get_key() -> String {
 
 fn end_game() {
     disable_raw_mode().unwrap();
+
     println!("");
-
     execute!(io::stdout(), MoveTo(40, 12)).unwrap();
+    execute!(io::stdout(), SetBackgroundColor(Color::White)).unwrap();
+    execute!(io::stdout(), SetForegroundColor(Color::Black)).unwrap();
     println!("Game over!");
+    execute!(io::stdout(), ResetColor).unwrap();
 
-    // Sleep for 1000 ms and block the main thread
-    sleep(Duration::from_millis(1000));
-    execute!(io::stdout(), MoveTo(0, 24 + 1)).unwrap();
+    sleep(Duration::from_millis(700));
+    execute!(io::stdout(), MoveTo(27, 13)).unwrap();
+    println!(" (You were just too slow! Bummer...) ");
+    sleep(Duration::from_millis(2500));
 }
