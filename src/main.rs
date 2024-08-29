@@ -218,7 +218,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
         height: 24,
     };
     let mut words: Vec<Word> = Vec::new();
-
+    let mut gametick = 1;
     while player.is_alive {
         add_word(&field, &mut words, &dictionary, player);
         words.retain(|w| !w.completed || w.word.len() > 0);
@@ -240,12 +240,15 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
         if player.score > 0 && player.score / 50 > 0 {
             player.level = player.score / 50 + 1;
         }
-        draw_words(&mut words, &field);
-        draw_border(&field);
-        draw_toolbar(player);
-        move_words(&mut words);
-        draw_shield(&field);
-        shield_hit(&mut words, player);
+        if gametick % 8 == 0 {
+            draw_words(&mut words, &field);
+            draw_border(&field);
+            draw_toolbar(player);
+            move_words(&mut words);
+            draw_shield(&field);
+            shield_hit(&mut words, player);
+        }
+        gametick += 1;
         let speed = calculate_speed(player);
         let sleep_time = Duration::from_micros(speed as u64);
         sleep(Duration::from_micros(sleep_time.as_micros() as u64));
@@ -254,7 +257,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
 }
 
 fn calculate_speed(player: &mut Player) -> i32 {
-    INITIAL_SPEED - player.level * 4000 as i32
+    INITIAL_SPEED - player.level * 400 as i32
 }
 
 fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>, player: &Player) {
