@@ -18,9 +18,7 @@ use crossterm::{
         Color, Colors, Print, PrintStyledContent, ResetColor, SetBackgroundColor, SetColors,
         SetForegroundColor, Stylize,
     },
-    terminal::{
-        disable_raw_mode, enable_raw_mode, Clear, ClearType,
-    },
+    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
 use highscore::*;
 use rand::Rng;
@@ -44,7 +42,7 @@ fn main() {
     });
     let mut player = Player {
         name: args.username.to_string(),
-        shields: 15,
+        shields: MAX_SHIELDS,
         level: 1,
         score: 0,
         is_alive: true,
@@ -129,7 +127,7 @@ fn draw_toolbar(player: &Player) {
     println!("Level: {}", player.level);
     execute!(io::stdout(), MoveTo(47, 1)).unwrap();
     print!("Shields: [ ");
-    for _ in 0..15 {
+    for _ in 0..MAX_SHIELDS {
         print!(".");
     }
     println!(" ]");
@@ -176,7 +174,7 @@ fn randomword(field: &Field, wordlist: &Vec<String>, player: &Player) -> Word {
                 enabled: true,
                 completed: false,
                 hit: false,
-            }
+            };
         }
     }
 }
@@ -190,11 +188,10 @@ fn get_dictionary_from_file() -> Vec<String> {
         .collect()
 }
 
-fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
+fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) -> bool {
     // Check if key is empty or space or does not contai a character
-
     if key.trim().is_empty() {
-        return;
+        return false;
     }
 
     let any_word_started = words.iter().any(|w| w.started);
@@ -204,13 +201,16 @@ fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
             word.word = word.word[1..].to_string();
             word.x += 1;
             player.score += 1;
+            return true;
         } else if word.word.starts_with(&key) && !any_word_started {
             word.started = true;
             word.word = word.word[1..].to_string();
             word.x += 1;
             player.score += 1;
+            return true;
         }
     }
+    false
 }
 fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<String>) {
     let field = Field {
@@ -218,10 +218,10 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
         height: 24,
     };
     let mut words: Vec<Word> = Vec::new();
-
+    let mut gametick = 1;
     while player.is_alive {
         add_word(&field, &mut words, &dictionary, player);
-        words.retain(|w| !w.completed || w.word.len() > 0);
+
         match rx.try_recv() {
             Ok(key) => {
                 if key == "EXIT" {
@@ -229,23 +229,30 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
                 }
                 _ = {
                     if key.to_string().is_ascii() && key.len() == 1 && !key.trim().is_empty() {
-                        update_words(key.clone(), &mut words, player);
-                        draw_words(&mut words, &field);
-                        draw_border(&field);
+                        let updated = update_words(key.clone(), &mut words, player);
+                        if updated {
+                            draw_words(&mut words, &field);
+                            draw_border(&field);
+                        }
                     }
                 };
             }
             Err(_) => {}
         }
-        if player.score > 0 && player.score / 50 > 0 {
-            player.level = player.score / 50 + 1;
+        if player.score > 0 && player.score / 75 > 0 {
+            player.level = player.score / 75 + 1;
         }
-        draw_words(&mut words, &field);
-        draw_border(&field);
-        draw_toolbar(player);
-        move_words(&mut words);
-        draw_shield(&field);
-        shield_hit(&mut words, player);
+        if gametick % 6 == 0 {
+            fun_name(&mut words, player);
+            draw_words(&mut words, &field);
+            draw_border(&field);
+            draw_toolbar(player);
+            move_words(&mut words);
+            draw_shield(&field);
+            shield_hit(&mut words, player);
+            words.retain(|w| !w.completed);
+        }
+        gametick += 1;
         let speed = calculate_speed(player);
         let sleep_time = Duration::from_micros(speed as u64);
         sleep(Duration::from_micros(sleep_time.as_micros() as u64));
@@ -253,8 +260,19 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
     end_game();
 }
 
+fn fun_name(words: &mut Vec<Word>, player: &mut Player) {
+    for word in &mut *words {
+        if word.completed {
+            if player.shields < MAX_SHIELDS {
+                player.shields += 1;
+            }
+        }
+    }
+    words.retain(|w| !w.completed);
+}
+
 fn calculate_speed(player: &mut Player) -> i32 {
-    INITIAL_SPEED - player.level * 4000 as i32
+    INITIAL_SPEED - player.level * 400 as i32
 }
 
 fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>, player: &Player) {
@@ -325,7 +343,7 @@ fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
             )
             .unwrap();
             execute!(io::stdout(), MoveTo(width as u16 - 1, word.y as u16)).unwrap();
-        } else if word.started &! word.hit {
+        } else if word.started & !word.hit {
             execute!(
                 io::stdout(),
                 SetForegroundColor(Color::Yellow),
@@ -336,7 +354,7 @@ fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
             )
             .unwrap();
             execute!(io::stdout(), MoveTo(width as u16 - 1, word.y as u16)).unwrap();
-        } else  {
+        } else {
             execute!(
                 io::stdout(),
                 Print(truncated_word),
