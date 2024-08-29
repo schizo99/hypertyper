@@ -19,8 +19,7 @@ use crossterm::{
         SetForegroundColor, Stylize,
     },
     terminal::{
-        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
-        LeaveAlternateScreen,
+        disable_raw_mode, enable_raw_mode, Clear, ClearType,
     },
 };
 use highscore::*;
@@ -164,17 +163,21 @@ fn draw_border(field: &Field) {
     execute!(io::stdout(), ResetColor).unwrap();
 }
 
-fn randomword(field: &Field, wordlist: &Vec<String>) -> Word {
-    let word = &wordlist[rand::thread_rng().gen_range(0..wordlist.len() as usize)];
-    Word {
-        word: word.to_string(),
-        original_word: word.to_string(),
-        x: field.width - 2,
-        y: rand::thread_rng().gen_range(5..field.height - 3),
-        started: false,
-        enabled: true,
-        completed: false,
-        hit: false,
+fn randomword(field: &Field, wordlist: &Vec<String>, player: &Player) -> Word {
+    loop {
+        let word = &wordlist[rand::thread_rng().gen_range(0..wordlist.len() as usize)];
+        if word.len() <= player.level as usize + 6 {
+            return Word {
+                word: word.to_string(),
+                original_word: word.to_string(),
+                x: field.width - 2,
+                y: rand::thread_rng().gen_range(5..field.height - 3),
+                started: false,
+                enabled: true,
+                completed: false,
+                hit: false,
+            }
+        }
     }
 }
 
@@ -201,22 +204,13 @@ fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
             word.word = word.word[1..].to_string();
             word.x += 1;
             player.score += 1;
-            word.hit = true;
         } else if word.word.starts_with(&key) && !any_word_started {
             word.started = true;
             word.word = word.word[1..].to_string();
             word.x += 1;
             player.score += 1;
-            word.hit = true;
         }
     }
-}
-fn flash_screen() {
-    execute!(io::stdout(), EnterAlternateScreen).unwrap();
-    execute!(io::stdout(), SetBackgroundColor(Color::White)).unwrap();
-    execute!(io::stdout(), Clear(ClearType::All)).unwrap();
-    sleep(Duration::from_millis(5));
-    execute!(io::stdout(), LeaveAlternateScreen).unwrap();
 }
 fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<String>) {
     let field = Field {
@@ -260,25 +254,25 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
 }
 
 fn calculate_speed(player: &mut Player) -> i32 {
-    INITIAL_SPEED - player.level * 2 as i32
+    INITIAL_SPEED - player.level * 4000 as i32
 }
 
 fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>, player: &Player) {
-    let mut new_word = randomword(field, dictionary);
+    let mut new_word = randomword(field, dictionary, player);
     if words.len() < 1 {
         words.push(new_word);
-    } else if words.len() < player.level as usize + 1 + (player.level as usize / 8) {
+    } else if words.len() < player.level as usize + 1 + (player.level as usize / 3) {
         let mut conflict = words
             .iter()
             .any(|w| w.original_word.starts_with(&new_word.word[0..1]));
         while conflict {
-            new_word = randomword(field, dictionary);
+            new_word = randomword(field, dictionary, player);
             let distance = words
                 .iter()
                 .map(|w| w.x as i32 - w.word.len() as i32)
                 .max()
                 .unwrap()
-                < new_word.x - rand::thread_rng().gen_range(16..30);
+                < new_word.x - rand::thread_rng().gen_range(10..20);
             let collision = words.iter().any(|w| w.y == new_word.y);
             conflict = words
                 .iter()
@@ -296,7 +290,7 @@ fn shield_hit(words: &mut Vec<Word>, player: &mut Player) {
     }
     for word in words.iter_mut() {
         if word.x <= SHIELD_POSITION - 1 && word.word.len() > 0 {
-            flash_screen();
+            word.hit = true;
             player.shields -= 1;
             word.word = word.word[1..].to_string();
             word.x += 1;
@@ -320,7 +314,18 @@ fn draw_words(words: &mut Vec<Word>, field: &Field) {
 fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
     if word.enabled && !word.completed {
         execute!(io::stdout(), MoveTo(word.x as u16, word.y as u16)).unwrap();
-        if word.hit || word.started {
+        if word.hit {
+            execute!(
+                io::stdout(),
+                SetForegroundColor(Color::DarkRed),
+                Print(truncated_word),
+                SetColors(Colors::new(Color::Reset, Color::Reset)),
+                PrintStyledContent("  ".white()),
+                ResetColor
+            )
+            .unwrap();
+            execute!(io::stdout(), MoveTo(width as u16 - 1, word.y as u16)).unwrap();
+        } else if word.started &! word.hit {
             execute!(
                 io::stdout(),
                 SetForegroundColor(Color::Yellow),
@@ -331,7 +336,7 @@ fn draw_word(word: &mut Word, truncated_word: String, width: i32) {
             )
             .unwrap();
             execute!(io::stdout(), MoveTo(width as u16 - 1, word.y as u16)).unwrap();
-        } else {
+        } else  {
             execute!(
                 io::stdout(),
                 Print(truncated_word),
@@ -377,7 +382,7 @@ fn end_game() {
     execute!(io::stdout(), ResetColor).unwrap();
 
     sleep(Duration::from_millis(700));
-    execute!(io::stdout(), MoveTo(27, 13)).unwrap();
+    execute!(io::stdout(), MoveTo(26, 13)).unwrap();
     println!(" (You were just too slow! Bummer...) ");
     sleep(Duration::from_millis(2500));
 }
