@@ -190,11 +190,11 @@ fn get_dictionary_from_file() -> Vec<String> {
         .collect()
 }
 
-fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
+fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) -> bool {
     // Check if key is empty or space or does not contai a character
 
     if key.trim().is_empty() {
-        return;
+        return false;
     }
 
     let any_word_started = words.iter().any(|w| w.started);
@@ -204,13 +204,16 @@ fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) {
             word.word = word.word[1..].to_string();
             word.x += 1;
             player.score += 1;
+            return true;
         } else if word.word.starts_with(&key) && !any_word_started {
             word.started = true;
             word.word = word.word[1..].to_string();
             word.x += 1;
             player.score += 1;
+            return true;
         }
     }
+    false
 }
 fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<String>) {
     let field = Field {
@@ -229,9 +232,11 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
                 }
                 _ = {
                     if key.to_string().is_ascii() && key.len() == 1 && !key.trim().is_empty() {
-                        update_words(key.clone(), &mut words, player);
-                        draw_words(&mut words, &field);
-                        draw_border(&field);
+                        let updated = update_words(key.clone(), &mut words, player);
+                        if updated {
+                            draw_words(&mut words, &field);
+                            draw_border(&field);
+                        }
                     }
                 };
             }
@@ -240,7 +245,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
         if player.score > 0 && player.score / 50 > 0 {
             player.level = player.score / 50 + 1;
         }
-        if gametick % 8 == 0 {
+        if gametick % 10 == 0 {
             draw_words(&mut words, &field);
             draw_border(&field);
             draw_toolbar(player);
