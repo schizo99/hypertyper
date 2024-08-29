@@ -641,7 +641,6 @@ heatguns
 saws
 dremeltools
 cordlessscrewdrivers
-obd-iiscanner
 multimeter
 compressiontester
 timinglight
