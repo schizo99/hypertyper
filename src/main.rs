@@ -9,7 +9,7 @@ use std::{
 };
 mod highscore;
 mod structs;
-mod words;
+
 use clap::Parser;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
@@ -24,7 +24,6 @@ use crossterm::{
 use highscore::*;
 use rand::Rng;
 use structs::*;
-use words::*;
 fn main() {
     let args = Args::parse();
     handle_highscore(&args);
@@ -47,7 +46,7 @@ fn main() {
         score: 0,
         is_alive: true,
     };
-    let dictionary = WORDS.split("\n").map(|s| s.to_string()).collect();
+    let dictionary = WORDS.lines().map(|s| s.to_string()).collect();
     mamma(rx, &mut player, &dictionary);
     add_highscore(&args, &player);
     enable_raw_mode().unwrap();
@@ -65,8 +64,7 @@ fn intro() {
     execute!(io::stdout(), SetForegroundColor(Color::Red)).unwrap();
 
     // Read the splash.txt file and display it on screen
-    let splash = SPLASH;
-    println!("{}", splash);
+    println!("{}", SPLASH);
 
     // Reset the color to default
     execute!(io::stdout(), ResetColor).unwrap();
