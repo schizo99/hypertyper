@@ -9,6 +9,7 @@ use std::{
 };
 mod highscore;
 mod structs;
+mod words;
 use clap::Parser;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
@@ -23,12 +24,11 @@ use crossterm::{
 use highscore::*;
 use rand::Rng;
 use structs::*;
-
+use words::*;
 fn main() {
     let args = Args::parse();
     handle_highscore(&args);
     intro();
-    // get size of terminal
     let (tx, rx) = mpsc::channel();
     let get_key = thread::spawn(move || loop {
         let key = get_key();
@@ -47,7 +47,7 @@ fn main() {
         score: 0,
         is_alive: true,
     };
-    let dictionary = get_dictionary_from_file();
+    let dictionary = WORDS.split("\n").map(|s| s.to_string()).collect();
     mamma(rx, &mut player, &dictionary);
     add_highscore(&args, &player);
     enable_raw_mode().unwrap();
@@ -65,7 +65,7 @@ fn intro() {
     execute!(io::stdout(), SetForegroundColor(Color::Red)).unwrap();
 
     // Read the splash.txt file and display it on screen
-    let splash = std::fs::read_to_string("splash.txt").unwrap();
+    let splash = SPLASH;
     println!("{}", splash);
 
     // Reset the color to default
@@ -177,15 +177,6 @@ fn randomword(field: &Field, wordlist: &Vec<String>, player: &Player) -> Word {
             };
         }
     }
-}
-
-fn get_dictionary_from_file() -> Vec<String> {
-    let words = std::fs::read_to_string("words_alpha.txt").unwrap();
-    words
-        .split("\r\n")
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string())
-        .collect()
 }
 
 fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) -> bool {
