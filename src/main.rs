@@ -164,7 +164,7 @@ fn draw_border(field: &Field) {
 fn randomword(field: &Field, wordlist: &Vec<String>, player: &Player) -> Word {
     loop {
         let word = &wordlist[rand::thread_rng().gen_range(0..wordlist.len() as usize)];
-        if word.len() <= player.level as usize + 6 {
+        if word.len() <= player.level as usize + 4 {
             return Word {
                 word: word.to_string(),
                 original_word: word.to_string(),
@@ -272,14 +272,14 @@ fn fun_name(words: &mut Vec<Word>, player: &mut Player) {
 }
 
 fn calculate_speed(player: &mut Player) -> i32 {
-    INITIAL_SPEED - player.level * 400 as i32
+    INITIAL_SPEED - player.level * 300 as i32
 }
 
 fn add_word(field: &Field, words: &mut Vec<Word>, dictionary: &Vec<String>, player: &Player) {
     let mut new_word = randomword(field, dictionary, player);
     if words.len() < 1 {
         words.push(new_word);
-    } else if words.len() < player.level as usize + 1 + (player.level as usize / 3) {
+    } else if words.len() < player.level as usize + 1 + (player.level as usize / 6) {
         let mut conflict = words
             .iter()
             .any(|w| w.original_word.starts_with(&new_word.word[0..1]));
