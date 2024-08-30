@@ -28,7 +28,8 @@ fn main() {
     let args = Args::parse();
     validera_highscore_file(&args.path);
     if args.show_highscore {
-        show_highscore(&args.path);
+        show_highscore(&args.path, true);
+        std::process::exit(0);
     }
     intro();
     let (rx, get_key) = key_thread();
@@ -36,10 +37,10 @@ fn main() {
     let dictionary = WORDS.lines().map(|s| s.to_string()).collect();
     mamma(rx, &mut player, &dictionary);
     add_highscore(&args, &player);
+    show_highscore(&args.path, false);
     enable_raw_mode().unwrap();
     get_key.join().unwrap();
     disable_raw_mode().unwrap();
-    show_highscore(&args.path);
     execute!(io::stdout(), Show).unwrap();
 }
 
@@ -385,4 +386,5 @@ fn end_game(player: &Player) {
         player.score, player.level
     );
     println!(" (You were just too slow! Bummer...) ");
+    sleep(Duration::from_millis(2000));
 }

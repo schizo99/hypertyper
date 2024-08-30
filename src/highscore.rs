@@ -47,17 +47,18 @@ pub fn validera_highscore_file(path: &str) {
     }
 }
 
-pub fn show_highscore(path: &str) {
+pub fn show_highscore(path: &str, wait: bool) {
     let content = top_highscores(&path).join("\n");
     execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
     execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
     execute!(io::stdout(), Hide).expect("Failed to hide cursor");
     println!("{}\n (Press any key to continue...)", &content);
-    enable_raw_mode().expect("Failed to enable raw mode");
-    read().unwrap();
-    disable_raw_mode().expect("Failed to disable raw mode");
+    if wait {
+        enable_raw_mode().expect("Failed to enable raw mode");
+        read().unwrap();
+        disable_raw_mode().expect("Failed to disable raw mode");
+    }
     execute!(io::stdout(), Show).expect("Failed to show cursor");
-    std::process::exit(0);
 }
 
 fn top_highscores(path: &str) -> Vec<String> {
