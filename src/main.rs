@@ -47,7 +47,7 @@ fn main() {
         score: 0,
         is_alive: true,
     };
-    let dictionary = get_dictionary_from_file();
+    let dictionary = WORDS.split("\n").map(|s| s.to_string()).collect();
     mamma(rx, &mut player, &dictionary);
     add_highscore(&args, &player);
     enable_raw_mode().unwrap();
@@ -177,15 +177,6 @@ fn randomword(field: &Field, wordlist: &Vec<String>, player: &Player) -> Word {
             };
         }
     }
-}
-
-fn get_dictionary_from_file() -> Vec<String> {
-    let words = WORDS;
-    words
-        .split("\n")
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string())
-        .collect()
 }
 
 fn update_words(key: String, words: &mut Vec<Word>, player: &mut Player) -> bool {
