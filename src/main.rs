@@ -64,7 +64,7 @@ fn intro() {
     execute!(io::stdout(), SetForegroundColor(Color::Red)).unwrap();
 
     // Read the splash.txt file and display it on screen
-    println!("{}", SPLASH);
+    println!("{}", SPLASH.to_string());
 
     // Reset the color to default
     execute!(io::stdout(), ResetColor).unwrap();
