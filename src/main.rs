@@ -13,7 +13,7 @@ mod structs;
 use clap::Parser;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
-    event::{read, Event, KeyCode, KeyEvent},
+    event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     style::{
         Color, Colors, Print, PrintStyledContent, ResetColor, SetBackgroundColor, SetColors,
@@ -364,12 +364,23 @@ fn truncate_word(word: &mut Word, width: i32) -> String {
 }
 
 fn get_key() -> String {
-    if let Event::Key(KeyEvent { code, .. }) = read().unwrap() {
-        return match code {
-            KeyCode::Char(c) => c.to_string(),
-            KeyCode::Esc => "EXIT".to_string(),
-            _ => "".to_string(),
-        };
+    if let Event::Key(KeyEvent {
+        code, modifiers, ..
+    }) = read().unwrap()
+    {
+        if modifiers.is_empty() {
+            return match code {
+                KeyCode::Char(c) => c.to_string(),
+                KeyCode::Esc => "EXIT".to_string(),
+                _ => "".to_string(),
+            };
+        } else {
+            if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
+                disable_raw_mode().unwrap();
+                execute!(io::stdout(), Show).unwrap();
+                std::process::exit(0);
+            }
+        }
     }
     "".to_string()
 }
