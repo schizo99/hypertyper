@@ -6,7 +6,7 @@
 use crate::structs::{Args, Player};
 
 use crossterm::{
-    cursor::{Hide, MoveTo, Show},
+    cursor::{Hide, MoveTo},
     event::read,
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
@@ -58,7 +58,6 @@ pub fn show_highscore(path: &str, wait: bool) {
         read().unwrap();
         disable_raw_mode().expect("Failed to disable raw mode");
     }
-    execute!(io::stdout(), Show).expect("Failed to show cursor");
 }
 
 fn top_highscores(path: &str) -> Vec<String> {

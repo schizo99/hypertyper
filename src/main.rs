@@ -29,6 +29,7 @@ fn main() {
     validera_highscore_file(&args.path);
     if args.show_highscore {
         show_highscore(&args.path, true);
+        execute!(io::stdout(), Show).expect("Failed to show cursor");
         std::process::exit(0);
     }
     intro();
@@ -38,6 +39,10 @@ fn main() {
     mamma(rx, &mut player, &dictionary);
     add_highscore(&args, &player);
     show_highscore(&args.path, false);
+    println!(
+        " (You scored {} points and made it to level {}) ",
+        player.score, player.level
+    );
     enable_raw_mode().unwrap();
     get_key.join().unwrap();
     disable_raw_mode().unwrap();
@@ -222,7 +227,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
             player.level = player.score / 75 + 1;
         }
         if gametick % 6 == 0 {
-            fun_name(&mut words, player);
+            word_completed(&mut words, player);
             draw_words(&mut words, &field);
             draw_border(&field);
             draw_toolbar(player);
@@ -237,10 +242,10 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
         sleep(Duration::from_micros(sleep_time.as_micros() as u64));
     }
     drop(rx);
-    end_game(player);
+    end_game();
 }
 
-fn fun_name(words: &mut Vec<Word>, player: &mut Player) {
+fn word_completed(words: &mut Vec<Word>, player: &mut Player) {
     for word in &mut *words {
         if word.completed {
             if player.shields < MAX_SHIELDS {
@@ -369,7 +374,7 @@ fn get_key() -> String {
     "".to_string()
 }
 
-fn end_game(player: &Player) {
+fn end_game() {
     disable_raw_mode().unwrap();
 
     println!("");
@@ -381,10 +386,6 @@ fn end_game(player: &Player) {
 
     sleep(Duration::from_millis(400));
     execute!(io::stdout(), MoveTo(26, 13)).unwrap();
-    println!(
-        "\n (You scored {} points and made it to level {} ) ",
-        player.score, player.level
-    );
     println!(" (You were just too slow! Bummer...) ");
     sleep(Duration::from_millis(2000));
 }
