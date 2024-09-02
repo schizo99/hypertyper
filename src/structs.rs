@@ -1,4 +1,5 @@
 use clap::Parser;
+use rand::Rng;
 
 pub const SHIELD_POSITION: i32 = 15;
 pub const INITIAL_SPEED: i32 = 15000;
@@ -39,10 +40,37 @@ pub struct Word {
     pub hit: bool,
 }
 
+impl Word {
+    pub fn new(word: &String, field: &Field) -> Self {
+        Self {
+            word: word.to_string(),
+            original_word: word.to_string(),
+            x: field.width - 2,
+            y: rand::thread_rng().gen_range(5..field.height - 3),
+            started: false,
+            enabled: true,
+            completed: false,
+            hit: false,
+        }
+    }
+}
+
 pub struct Player {
     pub name: String,
     pub shields: i32,
     pub level: i32,
     pub score: i32,
     pub is_alive: bool,
+}
+
+impl Player {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            shields: MAX_SHIELDS,
+            level: 1,
+            score: 0,
+            is_alive: true,
+        }
+    }
 }

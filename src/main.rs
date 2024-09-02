@@ -13,7 +13,7 @@ mod structs;
 use clap::Parser;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
-    event::{read, Event, KeyCode, KeyEvent},
+    event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     style::{
         Color, Colors, Print, PrintStyledContent, ResetColor, SetBackgroundColor, SetColors,
@@ -26,8 +26,39 @@ use rand::Rng;
 use structs::*;
 fn main() {
     let args = Args::parse();
-    handle_highscore(&args);
+    validera_highscore_file(&args.path);
+    if args.show_highscore {
+        highscore(&args);
+    }
     intro();
+    let (rx, get_key) = key_thread();
+    let mut player = Player::new(args.username.to_string());
+    let dictionary = WORDS.lines().map(|s| s.to_string()).collect();
+    mamma(rx, &mut player, &dictionary);
+    add_highscore(&args, &player);
+    show_highscore(&args.path);
+    println!(
+        " (You scored {} points and made it to level {}) ",
+        player.score, player.level
+    );
+    println!(" (Press any key to continue...)");
+    enable_raw_mode().unwrap();
+    get_key.join().unwrap();
+    disable_raw_mode().unwrap();
+    execute!(io::stdout(), Show).unwrap();
+}
+
+fn highscore(args: &Args) {
+    show_highscore(&args.path);
+    println!("(Press any key to continue...)");
+    enable_raw_mode().expect("Failed to enable raw mode");
+    read().unwrap();
+    disable_raw_mode().expect("Failed to disable raw mode");
+    execute!(io::stdout(), Show).expect("Failed to show cursor");
+    std::process::exit(0);
+}
+
+fn key_thread() -> (mpsc::Receiver<String>, thread::JoinHandle<()>) {
     let (tx, rx) = mpsc::channel();
     let get_key = thread::spawn(move || loop {
         let key = get_key();
@@ -39,21 +70,7 @@ fn main() {
         }
         sleep(Duration::from_millis(10));
     });
-    let mut player = Player {
-        name: args.username.to_string(),
-        shields: MAX_SHIELDS,
-        level: 1,
-        score: 0,
-        is_alive: true,
-    };
-    let dictionary = WORDS.lines().map(|s| s.to_string()).collect();
-    mamma(rx, &mut player, &dictionary);
-    add_highscore(&args, &player);
-    enable_raw_mode().unwrap();
-    show_highscore(&args.path, &player);
-    get_key.join().unwrap();
-    disable_raw_mode().unwrap();
-    execute!(io::stdout(), Show).unwrap();
+    (rx, get_key)
 }
 
 fn intro() {
@@ -75,15 +92,11 @@ fn intro() {
     sleep(Duration::from_millis(500));
 
     println!(
-        "                                            (Welcome! Press space to start the game!)"
+        "{}(Welcome! Press space to start the game!)",
+        " ".repeat(45)
     );
-    // wait until space is pressed
-    loop {
-        let key = get_key();
-        if key == " " {
-            break;
-        }
-    }
+    // wait until a key is pressed
+    read().unwrap();
     execute!(io::stdout(), Clear(ClearType::All)).unwrap();
 }
 
@@ -163,16 +176,7 @@ fn randomword(field: &Field, wordlist: &Vec<String>, player: &Player) -> Word {
     loop {
         let word = &wordlist[rand::thread_rng().gen_range(0..wordlist.len() as usize)];
         if word.len() <= player.level as usize + 4 {
-            return Word {
-                word: word.to_string(),
-                original_word: word.to_string(),
-                x: field.width - 2,
-                y: rand::thread_rng().gen_range(5..field.height - 3),
-                started: false,
-                enabled: true,
-                completed: false,
-                hit: false,
-            };
+            return Word::new(word, field);
         }
     }
 }
@@ -232,7 +236,7 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
             player.level = player.score / 75 + 1;
         }
         if gametick % 6 == 0 {
-            fun_name(&mut words, player);
+            word_completed(&mut words, player);
             draw_words(&mut words, &field);
             draw_border(&field);
             draw_toolbar(player);
@@ -246,10 +250,11 @@ fn mamma(rx: mpsc::Receiver<String>, player: &mut Player, dictionary: &Vec<Strin
         let sleep_time = Duration::from_micros(speed as u64);
         sleep(Duration::from_micros(sleep_time.as_micros() as u64));
     }
+    drop(rx);
     end_game();
 }
 
-fn fun_name(words: &mut Vec<Word>, player: &mut Player) {
+fn word_completed(words: &mut Vec<Word>, player: &mut Player) {
     for word in &mut *words {
         if word.completed {
             if player.shields < MAX_SHIELDS {
@@ -368,12 +373,23 @@ fn truncate_word(word: &mut Word, width: i32) -> String {
 }
 
 fn get_key() -> String {
-    if let Event::Key(KeyEvent { code, .. }) = read().unwrap() {
-        return match code {
-            KeyCode::Char(c) => c.to_string(),
-            KeyCode::Esc => "EXIT".to_string(),
-            _ => "".to_string(),
-        };
+    if let Event::Key(KeyEvent {
+        code, modifiers, ..
+    }) = read().unwrap()
+    {
+        if modifiers.is_empty() {
+            return match code {
+                KeyCode::Char(c) => c.to_string(),
+                KeyCode::Esc => "EXIT".to_string(),
+                _ => "".to_string(),
+            };
+        } else {
+            if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
+                disable_raw_mode().unwrap();
+                execute!(io::stdout(), Show).unwrap();
+                std::process::exit(0);
+            }
+        }
     }
     "".to_string()
 }
@@ -388,8 +404,8 @@ fn end_game() {
     println!("Game over!");
     execute!(io::stdout(), ResetColor).unwrap();
 
-    sleep(Duration::from_millis(700));
+    sleep(Duration::from_millis(400));
     execute!(io::stdout(), MoveTo(26, 13)).unwrap();
     println!(" (You were just too slow! Bummer...) ");
-    sleep(Duration::from_millis(2500));
+    sleep(Duration::from_millis(2000));
 }

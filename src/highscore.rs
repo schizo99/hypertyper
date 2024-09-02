@@ -4,11 +4,11 @@
 /// showing highscores, and handling highscore commands.
 ///
 use crate::structs::{Args, Player};
-use clap::CommandFactory;
+
 use crossterm::{
     cursor::{Hide, MoveTo},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
+    terminal::{Clear, ClearType},
 };
 use std::fs::OpenOptions;
 use std::io::{self, prelude::*};
@@ -29,7 +29,7 @@ pub fn add_highscore(args: &Args, player: &Player) {
     }
 }
 
-fn validate_highscore_file(path: &str) {
+pub fn validera_highscore_file(path: &str) {
     println!("Validating highscore file at path: {}", path);
     match std::fs::read_to_string(path) {
         Ok(_) => {
@@ -46,47 +46,12 @@ fn validate_highscore_file(path: &str) {
     }
 }
 
-pub fn show_highscore(path: &str, player: &Player) {
-    let end_score = player.score;
-
+pub fn show_highscore(path: &str) {
     let content = top_highscores(&path).join("\n");
-    disable_raw_mode().expect("Failed to disable raw mode");
     execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
     execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
     execute!(io::stdout(), Hide).expect("Failed to hide cursor");
-    if player.name == "show_highscore" {
-        println!("{}\n (Press any key to continue...)", &content);
-    } else {
-        println!(
-            "{}\n You scored {} points and made it to level {} ",
-            &content, end_score, player.level
-        );
-        println!(" (Press any key to continue...)");
-    }
-    enable_raw_mode().expect("Failed to enable raw mode");
-}
-
-pub fn handle_highscore(args: &Args) {
-    let username = &args.username;
-    if username == "show_highscore" && !args.show_highscore {
-        Args::command().print_help().unwrap();
-        std::process::exit(0);
-    }
-    let path = &args.path;
-    validate_highscore_file(&path);
-    if args.show_highscore {
-        show_highscore(
-            &path,
-            &Player {
-                name: "show_highscore".to_string(),
-                score: 0,
-                shields: 3,
-                level: 0,
-                is_alive: true,
-            },
-        );
-        std::process::exit(0);
-    }
+    println!("{}", &content);
 }
 
 fn top_highscores(path: &str) -> Vec<String> {
