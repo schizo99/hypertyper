@@ -28,9 +28,7 @@ fn main() {
     let args = Args::parse();
     validera_highscore_file(&args.path);
     if args.show_highscore {
-        show_highscore(&args.path, true);
-        execute!(io::stdout(), Show).expect("Failed to show cursor");
-        std::process::exit(0);
+        highscore(&args);
     }
     intro();
     let (rx, get_key) = key_thread();
@@ -38,15 +36,26 @@ fn main() {
     let dictionary = WORDS.lines().map(|s| s.to_string()).collect();
     mamma(rx, &mut player, &dictionary);
     add_highscore(&args, &player);
-    show_highscore(&args.path, false);
+    show_highscore(&args.path);
     println!(
         " (You scored {} points and made it to level {}) ",
         player.score, player.level
     );
+    println!(" (Press any key to continue...)");
     enable_raw_mode().unwrap();
     get_key.join().unwrap();
     disable_raw_mode().unwrap();
     execute!(io::stdout(), Show).unwrap();
+}
+
+fn highscore(args: &Args) {
+    show_highscore(&args.path);
+    println!("(Press any key to continue...)");
+    enable_raw_mode().expect("Failed to enable raw mode");
+    read().unwrap();
+    disable_raw_mode().expect("Failed to disable raw mode");
+    execute!(io::stdout(), Show).expect("Failed to show cursor");
+    std::process::exit(0);
 }
 
 fn key_thread() -> (mpsc::Receiver<String>, thread::JoinHandle<()>) {

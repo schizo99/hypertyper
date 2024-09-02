@@ -7,9 +7,8 @@ use crate::structs::{Args, Player};
 
 use crossterm::{
     cursor::{Hide, MoveTo},
-    event::read,
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
+    terminal::{Clear, ClearType},
 };
 use std::fs::OpenOptions;
 use std::io::{self, prelude::*};
@@ -47,17 +46,12 @@ pub fn validera_highscore_file(path: &str) {
     }
 }
 
-pub fn show_highscore(path: &str, wait: bool) {
+pub fn show_highscore(path: &str) {
     let content = top_highscores(&path).join("\n");
     execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
     execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
     execute!(io::stdout(), Hide).expect("Failed to hide cursor");
-    println!("{}\n (Press any key to continue...)", &content);
-    if wait {
-        enable_raw_mode().expect("Failed to enable raw mode");
-        read().unwrap();
-        disable_raw_mode().expect("Failed to disable raw mode");
-    }
+    println!("{}", &content);
 }
 
 fn top_highscores(path: &str) -> Vec<String> {
