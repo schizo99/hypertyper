@@ -1,4 +1,4 @@
-use clap::Parser;
+use argh::FromArgs;
 use rand::Rng;
 
 pub const SHIELD_POSITION: i32 = 15;
@@ -8,19 +8,20 @@ pub const MAX_SHIELDS: i32 = 15;
 pub const WORDS: &str = include_str!("words_alpha.txt");
 pub const SPLASH: &str = include_str!("splash.txt");
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+/// Command line arguments for the application.
+#[derive(FromArgs, Debug)]
+#[argh(description = "Command line arguments for the application.")]
 pub struct Args {
-    /// Username
-    #[arg(short, long, default_value = "show_highscore")]
+    #[argh(option, short = 'u', default = "String::from(\"show_highscore\")")]
+    /// username
     pub username: String,
 
-    /// Path to highscore file
-    #[arg(short, long, default_value = "highscore.txt")]
+    #[argh(option, short = 'p', default = "String::from(\"highscore.txt\")")]
+    /// path to highscore file
     pub path: String,
 
-    /// Show highscore
-    #[arg(short, long)]
+    #[argh(short = 's', switch)]
+    /// show highscore
     pub show_highscore: bool,
 }
 
