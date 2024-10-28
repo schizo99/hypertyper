@@ -10,7 +10,7 @@ use std::{
 mod highscore;
 mod structs;
 
-use clap::Parser;
+use argh::FromArgs;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
     event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
@@ -25,8 +25,14 @@ use highscore::*;
 use rand::Rng;
 use structs::*;
 fn main() {
-    let args = Args::parse();
+    let args: Args = argh::from_env();
     validera_highscore_file(&args.path);
+    //panic!("Username: {}", username);
+    if args.username == "show_highscore" && !args.show_highscore {
+        let arne = Args::from_args(&["--help"], &["--help"]).unwrap_err();
+        println!("{}", arne.output);
+        std::process::exit(0);
+    }
     if args.show_highscore {
         highscore(&args);
     }
